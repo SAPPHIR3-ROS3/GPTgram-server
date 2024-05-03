@@ -55,15 +55,8 @@ if __name__ == '__main__':
 
         if query == EXIT_COMMAND:
             break
-
-        #results = collection.query(query_texts=[query], n_results=3, include=['documents', 'distances', 'metadatas'])
-        results = queryTextCollection(collection, query)
         
-        #print(results)
-        # for i in range(len(result['documents'][0])):
-        #     print(f'{i+1} - {result["documents"][0][i]}')
-        #     print(f'    Distance: {result["distances"][0][i]}')
-        #     print(f'    Metadata: {result["metadatas"][0][i]}')
+        results = queryTextCollection(collection, query)
 
         for i in range(len(results)):
             print(f'{i+1} - {results[i]["documents"]}')
