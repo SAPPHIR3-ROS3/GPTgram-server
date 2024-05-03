@@ -1,5 +1,14 @@
 # GPTgram-server
 ## Setup
+python 3.11 is required (there are some problem of compatibility with python 3.12)
+
+### Modules needed (manual installation)
+- chromadb
+- langchain
+- unstructured
+- "unstructured[all-docs]"
+- websockets
+ 
 ### Unix/Linux/MacOS
 
 1. Clone the repository:
