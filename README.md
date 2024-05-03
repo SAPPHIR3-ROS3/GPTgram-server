@@ -46,3 +46,9 @@
     pip install -r requirements.txt
     ```
 
+## IncompatibilityNote
+this cause installation problem
+```console
+pip install "unstructured[image]"
+pip install "unstructured[pdf]"
+```
