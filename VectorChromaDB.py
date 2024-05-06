@@ -2,15 +2,20 @@ from chromadb import Client
 from chromadb.config import Settings
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from datetime import datetime
+from easyocr import Reader
 from hashlib import sha256 as SHA256
+from io import BytesIO
 from langchain_community.document_loaders import UnstructuredPDFLoader
+from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from PIL import Image
+from pdf2image import convert_from_path as convertFromPDF
 from pypdf import PdfReader
 from warnings import filterwarnings
 
-EMBEDDING_MODEL = 'all-mpnet-base-v2'
-CHUNK_SIZE = 350
-CHUNK_OVERLAP = 75
+EMBEDDING_MODEL = 'Alibaba-NLP/gte-large-en-v1.5'
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 100
 EXIT_COMMAND = 'exit'
 PDFPATH = 'Relationships between physhical properties and sequence in silkworm silks.pdf'
 
@@ -59,6 +64,13 @@ def getPDFPartMetadata(part : int, previusPart = None, nextPart = None, commonMe
 
     return metadata
 
+def addPDFPartMetadata(partIndex : int, pagePartIndex : int, commonMetadata : dict):
+    metadata = commonMetadata.copy()
+    metadata['part index'] = partIndex
+    metadata['page part'] = pagePartIndex
+
+    return metadata
+
 def addTextDocument(collection : Client, documents : str, metadata : dict):
     id = getID(documents, metadata)
     collection.add(documents=[documents], metadatas=[metadata], ids=[id])
@@ -92,6 +104,53 @@ def addPDFDocument(collection : Client, path : str, metadata : dict = None):
         # print()
         collection.add(documents=[parts[i].page_content], metadatas=[partMetadata], ids=[id], uris=[path])
 
+def extractImagesFromPDF(path : str):
+    document = PdfReader(path)
+    images = []
+
+    for page in document.pages:
+        for image in page.images:
+            image_bytes = image.data
+            image_io = BytesIO(image_bytes)
+            image = Image.open(image_io)
+            images.append(image)
+
+    return images
+
+def addPDFDocumentOCR(collection : Client, path : str, metadata : dict = None):
+    if not metadata:
+        commonMetadata = getPDFMetadata(path)
+
+    pages = convertFromPDF(path)
+    OCRReader = Reader(['en', 'it', 'ja', 'es', 'fr', 'de', 'ch_sim', 'ch_tra']) #TODO: needs testing
+
+
+def addPDFDocument2(collection : Client, path : str, metadata : dict = None):
+    if not metadata:
+        commonMetadata = getPDFMetadata(path)
+
+    document = PyPDFLoader(path, extract_images=True).load()
+    images = extractImagesFromPDF(path) #TODO: Add images to the collection
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
+    parts = splitter.split_documents(document)
+
+    lastPage = None
+    currentPartIndex = 0
+
+    for i in range(len(parts)):
+        page = parts[i].metadata.get("page")
+
+        if lastPage == page: currentPartIndex += 1
+        else: currentPartIndex = 0
+
+        for key in commonMetadata.keys():
+            parts[i].metadata[key] = str(commonMetadata[key])
+
+        metadata = addPDFPartMetadata(i, currentPartIndex, commonMetadata)
+        id = getID(parts[i], metadata, uri=path)
+        lastPage = page
+        collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
 def queryTextCollection(collection : Client, query : str, count : int = 3 , add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
     includes = []
@@ -110,7 +169,7 @@ def queryTextCollection(collection : Client, query : str, count : int = 3 , add_
 
 if __name__ == '__main__':
     filterwarnings("ignore")
-    sentenceTransformer = SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL)
+    sentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
     collection = ChromaClient.create_collection(name='test-collection', embedding_function=sentenceTransformer)
     
     # addTextDocument(collection, 'This is a test document', {'author': 'Marguerite Vasquez'})
@@ -119,7 +178,8 @@ if __name__ == '__main__':
     # addTextDocument(collection, 'There were white out conditions in the town', {'author': 'Hulda Lowe'})
     # addTextDocument(collection, 'She had the gift of being able to paint songs', {'author': 'Chad Frazier'})
     
-    addPDFDocument(collection, PDFPATH)
+    addPDFDocument2(collection, PDFPATH)
+    quit()
 
     while True:
         query = input('Enter a query: ')
