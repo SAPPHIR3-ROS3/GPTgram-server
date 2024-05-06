@@ -64,6 +64,7 @@ jsonpointer==2.4
 kiwisolver==1.4.5
 kubernetes==29.0.0
 langchain==0.1.17
+langchain-chroma==0.1.0
 langchain-community==0.0.36
 langchain-core==0.1.50
 langchain-text-splitters==0.0.1
@@ -119,6 +120,7 @@ portalocker==2.8.2
 posthog==3.5.0
 proto-plus==1.23.0
 protobuf==4.25.3
+pulsar-client==3.5.0
 pyasn1==0.6.0
 pyasn1_modules==0.4.0
 pycocotools==2.0.7
