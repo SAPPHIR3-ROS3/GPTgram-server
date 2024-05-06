@@ -55,9 +55,15 @@ python 3.11 is required (there are some problem of compatibility with python 3.1
     pip install -r requirements.txt
     ```
 
-## IncompatibilityNote
+## Incompatibility Note
 this cause installation problem
 ```console
 pip install "unstructured[image]"
 pip install "unstructured[pdf]"
 ```
+
+## link interessanti
+- https://www.youtube.com/watch?v=2TJxpyO3ei4&ab_channel=pixegami
+  - https://github.com/pixegami/rag-tutorial-v2
+- https://www.youtube.com/watch?v=oyqNdcbKhew&ab_channel=RobMulla
+- https://github.com/tonykipkemboi/ollama_pdf_rag
