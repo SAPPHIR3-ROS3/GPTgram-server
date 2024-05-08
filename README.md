@@ -4,9 +4,22 @@ python 3.11 is required (there are some problem of compatibility with python 3.1
 
 ### Modules needed (manual installation)
 - chromadb
+- easyocr
 - langchain
+- langchain-chroma
+- langchain-text-splitters
+- ollama
+- openai
+- pdf2image
+- pypdf
+- pytorch (this one need CUDA setup)
+- rapidocr-onnxruntime
+- sentence
 - unstructured
 - "unstructured[all-docs]"
+- torch
+- torchaudio
+- torchvision
 - websockets
  
 ### Unix/Linux/MacOS
