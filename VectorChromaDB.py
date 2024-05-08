@@ -7,7 +7,9 @@ from hashlib import sha256 as SHA256
 from io import BytesIO
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.document_loaders.pdf import PyPDFLoader
+from langchain_core.documents.base import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from numpy import array as Array
 from PIL import Image
 from pdf2image import convert_from_path as convertFromPDF
 from pypdf import PdfReader
@@ -124,37 +126,42 @@ def addPDFDocumentOCR(collection : Client, path : str, metadata : dict = None):
     if not metadata:
         commonMetadata = getPDFMetadata(path)
 
-    pages = convertFromPDF(path)
-    OCRReader = Reader(['en', 'it', 'ja', 'es', 'fr', 'de', 'ch_sim', 'ch_tra']) #TODO: needs testing
+    pages = [Array(page) for page in convertFromPDF(path)]
+    OCRReader = Reader(['en', 'it', 'es', 'fr', 'de'], gpu=True) #TODO: needs testing
     document = []
 
     for i, page in enumerate(pages):
+        #print(f'type = {type(page)}')
         result = OCRReader.readtext(page)
         text = ' '.join([line[1] for line in result])
         pageMetadata = dict()
         pageMetadata['raw OCR'] = result
         pageMetadata['mode'] = 'OCR'
+        pageDocument = Document(page_content=text, metadata=pageMetadata)
 
-        document.append((text, pageMetadata))
+        document.append(pageDocument)
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
-    partIndex = 0
+    parts = splitter.split_documents(document)
 
-    for page in document:
-        currentPageIndex = 0
-        parts = splitter.split_documents(page[0])
+    lastPage = None
+    currentPartIndex = 0
+    
+    for i in range(len(parts)):
+        page = parts[i].metadata.get("page")
 
-        for i in range(len(parts)):
-            for key in commonMetadata.keys():
-                parts[i].metadata[key] = str(commonMetadata[key])
+        if lastPage == page: currentPartIndex += 1
+        else: currentPartIndex = 0
 
-            metadata = addPDFPartMetadata(partIndex, currentPageIndex, commonMetadata)
-            metadata['mode'] = 'OCR'
-            id = getID(parts[i], metadata, uri=path)
-            currentPageIndex += 1
-            partIndex += 1
-            collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
+        for key in commonMetadata.keys():
+            parts[i].metadata[key] = str(commonMetadata[key])
 
+        metadata = addPDFPartMetadata(i, currentPartIndex, commonMetadata)
+        metadata['mode'] = 'OCR'
+        id = getID(parts[i], metadata, uri=path)
+
+        lastPage = page
+        collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
 def addPDFDocument2(collection : Client, path : str, metadata : dict = None):
     if not metadata:
@@ -213,7 +220,6 @@ if __name__ == '__main__':
     # addTextDocument(collection, 'She had the gift of being able to paint songs', {'author': 'Chad Frazier'})
     
     addPDFDocumentOCR(collection, PDFPATH)
-    quit()
 
     while True:
         query = input('Enter a query: ')
