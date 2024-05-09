@@ -2,3 +2,4 @@
 *.pdf
 test.py
 *.pem
+clients.json
