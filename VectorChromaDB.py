@@ -19,6 +19,7 @@ EMBEDDING_MODEL = 'Alibaba-NLP/gte-large-en-v1.5'
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 100
 EXIT_COMMAND = 'exit'
+POPPLERPATH = './dependencies/windows/poppler-24.02.0/Library/bin'
 PDFPATH = 'Relationships between physhical properties and sequence in silkworm silks.pdf'
 
 PINK = '\033[95m'
@@ -80,7 +81,7 @@ def addTextDocument(collection : Client, documents : str, metadata : dict):
 def addImageDocument(collection : Client, metadata : dict, path : str, image : Image = None, save = False):
     pass
 
-def addPDFDocument(collection : Client, path : str, metadata : dict = None):
+def addPDFDocumentUnstructured(collection : Client, path : str, metadata : dict = None):
     if not metadata:
         metadata = getPDFMetadata(path)
 
@@ -126,23 +127,31 @@ def addPDFDocumentOCR(collection : Client, path : str, metadata : dict = None):
     if not metadata:
         commonMetadata = getPDFMetadata(path)
 
-    pages = [Array(page) for page in convertFromPDF(path)]
+    addingDate = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    pages = [Array(page) for page in convertFromPDF(path, poppler_path=POPPLERPATH)]
     OCRReader = Reader(['en', 'it', 'es', 'fr', 'de'], gpu=True) #TODO: needs testing
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Reader loaded")}: {path}')
     document = []
 
     for i, page in enumerate(pages):
-        #print(f'type = {type(page)}')
         result = OCRReader.readtext(page)
         text = ' '.join([line[1] for line in result])
         pageMetadata = dict()
         pageMetadata['raw OCR'] = result
+        pageMetadata['adding date'] = addingDate 
+        pageMetadata['mean confidence'] = str(sum([line[2] for line in result]) / len(result))
         pageMetadata['mode'] = 'OCR'
+        pageMetadata['page'] = i
+        # print(f'{greenText("metadata")}: {pageMetadata}')
         pageDocument = Document(page_content=text, metadata=pageMetadata)
 
         document.append(pageDocument)
 
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document loaded")}: {path}')
+
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
     parts = splitter.split_documents(document)
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document splitted")}: {len(parts)}')
 
     lastPage = None
     currentPartIndex = 0
@@ -158,20 +167,26 @@ def addPDFDocumentOCR(collection : Client, path : str, metadata : dict = None):
 
         metadata = addPDFPartMetadata(i, currentPartIndex, commonMetadata)
         metadata['mode'] = 'OCR'
+        metadata['page'] = page
         id = getID(parts[i], metadata, uri=path)
 
         lastPage = page
         collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
-def addPDFDocument2(collection : Client, path : str, metadata : dict = None):
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document added")}: {path}')
+
+def addPDFDocument(collection : Client, path : str, metadata : dict = None):
     if not metadata:
         commonMetadata = getPDFMetadata(path)
 
     document = PyPDFLoader(path, extract_images=True).load()
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document loaded")}: {path}')
     images = extractImagesFromPDF(path) #TODO: Add images to the collection
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Images extracted")}: {len(images)}')
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
     parts = splitter.split_documents(document)
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document splitted")}: {len(parts)}')
 
     lastPage = None
     currentPartIndex = 0
@@ -187,11 +202,16 @@ def addPDFDocument2(collection : Client, path : str, metadata : dict = None):
 
         metadata = addPDFPartMetadata(i, currentPartIndex, commonMetadata)
         metadata['mode'] = 'pyPDF'
+        metadata['page'] = page
         id = getID(parts[i], metadata, uri=path)
         lastPage = page
         collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
-    #addPDFDocumentOCR(collection, path, metadata)
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document added")}: {path}')
+
+def addPDFDocumentMultiModal(collection : Client, path : str, metadata : dict = None):
+    addPDFDocument(collection, path)
+    addPDFDocumentOCR(collection, path)
 
 def queryTextCollection(collection : Client, query : str, count : int = 3 , add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
     includes = []
@@ -210,8 +230,11 @@ def queryTextCollection(collection : Client, query : str, count : int = 3 , add_
 
 if __name__ == '__main__':
     filterwarnings("ignore")
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Starting...")}')
     sentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Model loaded")}: {EMBEDDING_MODEL}')
     collection = ChromaClient.create_collection(name='test-collection', embedding_function=sentenceTransformer)
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Collection created")}: test-collection')
     
     # addTextDocument(collection, 'This is a test document', {'author': 'Marguerite Vasquez'})
     # addTextDocument(collection, 'This is another document', {'author': 'Claudia Parker'})
@@ -219,7 +242,9 @@ if __name__ == '__main__':
     # addTextDocument(collection, 'There were white out conditions in the town', {'author': 'Hulda Lowe'})
     # addTextDocument(collection, 'She had the gift of being able to paint songs', {'author': 'Chad Frazier'})
     
-    addPDFDocumentOCR(collection, PDFPATH)
+    addPDFDocumentMultiModal(collection, PDFPATH)
+    
+    print()
 
     while True:
         query = input('Enter a query: ')
@@ -234,3 +259,7 @@ if __name__ == '__main__':
             print(f'    Distance: {results[i]["distances"]}')
             print(f'    Metadata: {results[i]["metadatas"]}')
             print()
+        
+        print()
+
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Exiting...")}')
