@@ -79,7 +79,7 @@ async def handle_register(websocket, data):
 
 
 # Gestione del login
-# Gestione del login
+
 async def handle_login(websocket, data): 
     print(f"Handling login for {data['email']}") 
     email = data['email'] 
