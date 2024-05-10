@@ -1,4 +1,66 @@
 # GPTgram-server
+## server structure
+<pre>
+.  
+├── server.py  
+├── database.db  
+├── LICENSE  
+├── .gitignore  
+├── requirements.txt  
+├── dependencies-utilities  
+│   ├── windows  
+│   │   └── ...  
+│   ├── macOS  
+│   │   └── ...  
+│   └── linux  
+│       └── ...  
+├── ollamarag  
+│   └── ...  
+├── RAG  
+│   ├── RAG.py  
+│   ├── VectorChromaDB   
+│   └── ...  
+├── common-data  
+│   ├── chroma.sqlite    
+│   ├── pdf  
+│   │   └── ...  
+│   ├── image  
+│   │   └── ...  
+│   ├── audio  
+│   │   └── ...  
+│   └── ...  
+└── users-data  
+    ├── user1  
+    │   ├── chroma.sqlite  
+    │   ├── info.json  
+    │   ├── chats  
+    │   │   ├── chat1  
+    │   │   ├── ...  
+    │   │   └── chatN  
+    │   ├── pdf  
+    │   │   └── ...  
+    │   ├── image  
+    │   │   └── ...  
+    │   ├── audio  
+    │   │   └── ...  
+    │   └── ...  
+    ├── ...  
+    └── userN  
+        ├── chroma.sqlite
+        ├── info.json
+        ├── chats
+        │   ├── chat1
+        │   ├── ...
+        │   └── chatN
+        ├── pdf  
+        │   └── ...  
+        ├── image  
+        │   └── ...  
+        ├── audio  
+        │   └── ...  
+        └── ...  
+</pre>
+
 ## Setup
 python 3.11 is required (there are some problem of compatibility with python 3.12)
 
