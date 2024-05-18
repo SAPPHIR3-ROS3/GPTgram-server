@@ -3,3 +3,4 @@
 test.py
 *.pem
 clients.json
+*test*
