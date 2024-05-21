@@ -5,3 +5,4 @@ test.py
 clients.json
 *test*
 *.csv
+*.env
