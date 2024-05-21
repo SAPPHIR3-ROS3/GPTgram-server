@@ -6,6 +6,7 @@ import os
 import binascii
 import sys
 import base64
+from time import sleep
 
 TYPE_REGISTER_MESSAGE = "register"  # Tipo di messaggio per la registrazione
 TYPE_LOGIN_MESSAGE = "login"        # Tipo di messaggio per il login
@@ -43,6 +44,8 @@ async def handle_message(websocket, data):
         'message': f"Echo: {data['message']}"
     }
     # Invia il messaggio di echo al client
+    sleep(2) # TODO: Rimuovere questa riga
+    print(f"echo message: {echo_message['message']}")
     await websocket.send(json.dumps(echo_message))
     
 
