@@ -1,11 +1,14 @@
 from chromadb import Client
 from chromadb.config import Settings
+from chromadb.utils.data_loaders import ImageLoader
+from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from datetime import datetime
 from easyocr import Reader
 from hashlib import sha256 as SHA256
 from io import BytesIO
 from langchain_community.document_loaders import UnstructuredPDFLoader
+from langchain_community.document_loaders import UnstructuredImageLoader
 from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_core.documents.base import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -14,6 +17,11 @@ from PIL import Image
 from pdf2image import convert_from_path as convertFromPDF
 from pypdf import PdfReader
 from warnings import filterwarnings
+from transformers import BlipForConditionalGeneration 
+from transformers import BlipProcessor
+from transformers import ViTForImageClassification as Model
+from transformers import ViTImageProcessor as Processor
+from pytesseract import pytesseract
 
 EMBEDDING_MODEL = 'Alibaba-NLP/gte-large-en-v1.5'
 CHUNK_SIZE = 1000
@@ -78,8 +86,55 @@ def addTextDocument(collection : Client, documents : str, metadata : dict):
     id = getID(documents, metadata)
     collection.add(documents=[documents], metadatas=[metadata], ids=[id])
 
-def addImageDocument(collection : Client, metadata : dict, path : str, image : Image = None, save = False):
-    pass
+def getClassImage(imagepath):
+    model = Model.from_pretrained('google/vit-large-patch16-224')
+    processor = Processor.from_pretrained('google/vit-large-patch16-224')
+    image = Image.open(imagepath).convert('RGB')
+    inputs = processor(images=image, return_tensors="pt")
+    outputs = model(**inputs)
+    logits = outputs.logits
+    predicted_class_idx = logits.argmax(-1).item()
+    classification = str(model.config.id2label[predicted_class_idx])
+
+    # image = Image.open(imagepath).convert('RGB')
+    # inputs = Processor(images=image, return_tensors="pt")
+    # outputs = Model(**inputs)
+    # logits = outputs.logits
+    # predicted_class_idx = logits.argmax(-1).item()
+    # classification = str(Model.config.id2label[predicted_class_idx])
+    
+    return classification
+
+def getCaptionImage(imagepath):
+    image = Image.open(imagepath).convert('RGB')
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
+    inputs = processor(images=image, return_tensors="pt")
+    outputs = model.generate(**inputs)
+    caption = processor.decode(outputs[0], skip_special_tokens=True)
+
+    return caption
+
+def getImageMetadata(imagepath):
+    metadata = dict()
+    metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    metadata['uri'] = imagepath
+    metadata['type'] = imagepath.split('.')[-1]
+    metadata['classification'] = getClassImage(imagepath)
+    metadata['caption'] = getCaptionImage(imagepath)
+
+    return metadata
+
+def addImageDocumentUnstructured(collection : Client, path : str, metadata : dict = None):
+    if not metadata:
+        metadata = getImageMetadata(path)
+    
+    #document = UnstructuredImageLoader(path, 'single').load()
+    image = Image.open(path).convert('RGB')
+    id = getID(image, metadata, uri=path)
+    #print(document)
+    # collection.add(documents=[document], datas=[metadata], ids=[id], uris=[path])
+    collection.add(metadatas=[metadata], ids=[id], uris=[path])
 
 def addPDFDocumentUnstructured(collection : Client, path : str, metadata : dict = None):
     if not metadata:
@@ -228,21 +283,54 @@ def queryTextCollection(collection : Client, query : str, count : int = 3 , add_
     orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
     return orderedResult
 
+def queryImageCollection(collection : Client, imagepath : str, count : int = 3, add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
+    includes = []
+
+    # embeddings, documents, metadatas, uris, data, distances
+    if add_docs: includes.append('documents')
+    if add_dists: includes.append('distances')
+    if add_metadatas: includes.append('metadatas')
+    if add_uris: includes.append('uris')
+    if add_data: includes.append('data')
+
+    result = collection.query(query_texts=[query], n_results=count, include=includes)
+    result = {key: result[key][0] for key in result.keys() if result[key] != None}
+    orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
+    return orderedResult
+
+
 if __name__ == '__main__':
     filterwarnings("ignore")
+    print(pytesseract.TESSERACT_MIN_VERSION)
+    pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesseract.exe'
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Starting...")}')
     sentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Model loaded")}: {EMBEDDING_MODEL}')
     collection = ChromaClient.create_collection(name='test-collection', embedding_function=sentenceTransformer)
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Collection created")}: test-collection')
-    
+    imageLoader = ImageLoader()
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Image loader loaded")}')
+    openCLIP = OpenCLIPEmbeddingFunction()
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OpenCLIP loaded")}')
+    mediaCollection = ChromaClient.create_collection(name='media-collection', embedding_function=openCLIP, data_loader=imageLoader)
     # addTextDocument(collection, 'This is a test document', {'author': 'Marguerite Vasquez'})
     # addTextDocument(collection, 'This is another document', {'author': 'Claudia Parker'})
     # addTextDocument(collection, "Dolores wouldn't have eaten the meal if she had known", {'author': 'Alan Terry'})
     # addTextDocument(collection, 'There were white out conditions in the town', {'author': 'Hulda Lowe'})
     # addTextDocument(collection, 'She had the gift of being able to paint songs', {'author': 'Chad Frazier'})
     
-    addPDFDocumentMultiModal(collection, PDFPATH)
+    #addPDFDocumentMultiModal(collection, PDFPATH)
+    addImageDocumentUnstructured(mediaCollection, 'testimages/animals/illustration/white/1.png')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/background/vector/white/2.png')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/buildings/photo/white/1.jpg')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/business/illustration/white/3.jpg')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/computer/vector/white/2.png')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/education/photo/white/2.jpg')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/fashion/illustration/white/1.jpg')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/feelings/vector/white/1.png')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/food/photo/white/1.jpg')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/health/illustration/white/4.jpg')
+    addImageDocumentUnstructured(mediaCollection, 'testimages/industry/vector/white/2.png')
     
     print()
 
@@ -252,7 +340,8 @@ if __name__ == '__main__':
         if query == EXIT_COMMAND:
             break
         
-        results = queryTextCollection(collection, query, 5)
+        # results = queryTextCollection(collection, query, 5)
+        results = queryImageCollection(mediaCollection, query, 5)
 
         for i in range(len(results)):
             print(f'{greenText(i+1)} - {results[i]["documents"]}')
