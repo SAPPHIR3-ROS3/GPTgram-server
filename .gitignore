@@ -6,3 +6,4 @@ clients.json
 *test*
 *.csv
 *.env
+*.ipynb
