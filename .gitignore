@@ -7,3 +7,4 @@ clients.json
 *.csv
 *.env
 *.ipynb
+__pycache__
