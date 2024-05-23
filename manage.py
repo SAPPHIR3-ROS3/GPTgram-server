@@ -129,6 +129,14 @@ def loadDatabase():
 
     return connector
 
+def createUsersData():
+    if not exists(USERSDATAPATH):
+        makedirs(USERSDATAPATH)
+
+        return True
+    
+    else: return False
+
 def deleteUsersData(connector: connect, confirm: bool = False):
     if confirm:
         rmtree(USERSDATAPATH)
@@ -144,6 +152,12 @@ def deleteUsersData(connector: connect, confirm: bool = False):
             
         connector.close()
         remove(DBPATH)
+
+def setupData():
+    createUsersData()
+    createCommonData()
+
+    return loadDatabase()
 
 def deleteAllData(connector: connect, confirm: bool = False):
     if confirm:
