@@ -1,4 +1,5 @@
 from chromadb import Client
+from chromadb import Collection
 from chromadb.config import Settings
 from chromadb.utils.data_loaders import ImageLoader
 from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
@@ -54,6 +55,11 @@ def getID(document, metadata : dict, data = None, uri = None):
 
     return hash 
 
+def doesExists(collection : Collection, id : str):
+    document = collection.get(id)
+
+    return document is not None
+
 def getPDFMetadata(documentPath : str):
     documentMetadata = PdfReader(documentPath).metadata
     metadata = {
@@ -82,9 +88,11 @@ def addPDFPartMetadata(partIndex : int, pagePartIndex : int, commonMetadata : di
 
     return metadata
 
-def addTextDocument(collection : Client, documents : str, metadata : dict):
+def addTextDocument(collection : Collection, documents : str, metadata : dict):
     id = getID(documents, metadata)
-    collection.add(documents=[documents], metadatas=[metadata], ids=[id])
+    
+    if not doesExists(collection, id):
+        collection.add(documents=[documents], metadatas=[metadata], ids=[id])
 
 def getClassImage(imagepath):
     model = Model.from_pretrained('google/vit-large-patch16-224')
@@ -125,7 +133,7 @@ def getImageMetadata(imagepath):
 
     return metadata
 
-def addImageDocument(collection : Client, path : str, metadata : dict = None, name : str = None):
+def addImageDocument(collection : Collection, path : str, metadata : dict = None, name : str = None):
     if not metadata:
         metadata = getImageMetadata(path)
     
@@ -135,9 +143,10 @@ def addImageDocument(collection : Client, path : str, metadata : dict = None, na
     id = getID(image, metadata, uri=path)
     #print(document)
     # collection.add(documents=[document], datas=[metadata], ids=[id], uris=[path])
-    collection.add(documents=[document], metadatas=[metadata], ids=[id], uris=[path])
+    if not doesExists(collection, id):
+        collection.add(documents=[document], metadatas=[metadata], ids=[id], uris=[path])
 
-def addPDFDocumentUnstructured(collection : Client, path : str, metadata : dict = None):
+def addPDFDocumentUnstructured(collection : Collection, path : str, metadata : dict = None):
     if not metadata:
         metadata = getPDFMetadata(path)
 
@@ -164,7 +173,8 @@ def addPDFDocumentUnstructured(collection : Client, path : str, metadata : dict 
         # print(f'{greenText("id")}: {id}')
         # print(f'{greenText("uri")}: {path}')
         # print()
-        collection.add(documents=[parts[i].page_content], metadatas=[partMetadata], ids=[id], uris=[path])
+        if not doesExists(collection, id):
+            collection.add(documents=[parts[i].page_content], metadatas=[partMetadata], ids=[id], uris=[path])
 
 def extractImagesFromPDF(path : str):
     document = PdfReader(path)
@@ -179,7 +189,7 @@ def extractImagesFromPDF(path : str):
 
     return images
 
-def addPDFDocumentOCR(collection : Client, path : str, metadata : dict = None):
+def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = None):
     if not metadata:
         commonMetadata = getPDFMetadata(path)
 
@@ -227,11 +237,13 @@ def addPDFDocumentOCR(collection : Client, path : str, metadata : dict = None):
         id = getID(parts[i], metadata, uri=path)
 
         lastPage = page
-        collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
+
+        if not doesExists(collection, id):
+            collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document added")}: {path}')
 
-def addPDFDocument(collection : Client, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
+def addPDFDocument(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
     if not metadata:
         commonMetadata = getPDFMetadata(path)
 
@@ -262,7 +274,9 @@ def addPDFDocument(collection : Client, path : str, metadata : dict = None, imag
         metadata['page'] = page
         id = getID(parts[i], metadata, uri=path)
         lastPage = page
-        collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
+
+        if not doesExists(collection, id): 
+            collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document added")}: {path}')
 
@@ -272,11 +286,11 @@ def addPDFDocument(collection : Client, path : str, metadata : dict = None, imag
             image.save(path)
             addImageDocument(collection, path)
 
-def addPDFDocumentMultiModal(collection : Client, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
+def addPDFDocumentMultiModal(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
     addPDFDocument(collection, path, metadata, images, imagesPath)
     addPDFDocumentOCR(collection, path, metadata)
 
-def queryTextCollection(collection : Client, query : str, count : int = 3 , add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
+def queryTextCollection(collection : Collection, query : str, count : int = 3 , add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
     includes = []
 
     # embeddings, documents, metadatas, uris, data, distances
@@ -291,7 +305,7 @@ def queryTextCollection(collection : Client, query : str, count : int = 3 , add_
     orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
     return orderedResult
 
-def queryImageCollection(collection : Client, imagepath : str, count : int = 3, add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
+def queryImageCollection(collection : Collection, imagepath : str, count : int = 3, add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
     includes = []
 
     # embeddings, documents, metadatas, uris, data, distances
@@ -305,7 +319,6 @@ def queryImageCollection(collection : Client, imagepath : str, count : int = 3, 
     result = {key: result[key][0] for key in result.keys() if result[key] != None}
     orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
     return orderedResult
-
 
 if __name__ == '__main__':
     filterwarnings("ignore")
