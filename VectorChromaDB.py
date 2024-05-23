@@ -125,16 +125,17 @@ def getImageMetadata(imagepath):
 
     return metadata
 
-def addImageDocumentUnstructured(collection : Client, path : str, metadata : dict = None):
+def addImageDocument(collection : Client, path : str, metadata : dict = None, name : str = None):
     if not metadata:
         metadata = getImageMetadata(path)
     
     #document = UnstructuredImageLoader(path, 'single').load()
+    document = Document(path if not name else name)
     image = Image.open(path).convert('RGB')
     id = getID(image, metadata, uri=path)
     #print(document)
     # collection.add(documents=[document], datas=[metadata], ids=[id], uris=[path])
-    collection.add(metadatas=[metadata], ids=[id], uris=[path])
+    collection.add(documents=[document], metadatas=[metadata], ids=[id], uris=[path])
 
 def addPDFDocumentUnstructured(collection : Client, path : str, metadata : dict = None):
     if not metadata:
@@ -230,10 +231,11 @@ def addPDFDocumentOCR(collection : Client, path : str, metadata : dict = None):
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document added")}: {path}')
 
-def addPDFDocument(collection : Client, path : str, metadata : dict = None):
+def addPDFDocument(collection : Client, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
     if not metadata:
         commonMetadata = getPDFMetadata(path)
 
+    documentName = datetime.now().strftime('%Y%m%d') + path.split('/')[-1].split('.')[0]
     document = PyPDFLoader(path, extract_images=True).load()
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document loaded")}: {path}')
     images = extractImagesFromPDF(path) #TODO: Add images to the collection
@@ -264,9 +266,15 @@ def addPDFDocument(collection : Client, path : str, metadata : dict = None):
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document added")}: {path}')
 
-def addPDFDocumentMultiModal(collection : Client, path : str, metadata : dict = None):
-    addPDFDocument(collection, path)
-    addPDFDocumentOCR(collection, path)
+    if images:
+        for i, image in enumerate(images):
+            path = f'{imagesPath}/{documentName+str(i+1)}.png'
+            image.save(path)
+            addImageDocument(collection, path)
+
+def addPDFDocumentMultiModal(collection : Client, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
+    addPDFDocument(collection, path, metadata, images, imagesPath)
+    addPDFDocumentOCR(collection, path, metadata)
 
 def queryTextCollection(collection : Client, query : str, count : int = 3 , add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
     includes = []
@@ -320,17 +328,17 @@ if __name__ == '__main__':
     # addTextDocument(collection, 'She had the gift of being able to paint songs', {'author': 'Chad Frazier'})
     
     #addPDFDocumentMultiModal(collection, PDFPATH)
-    addImageDocumentUnstructured(mediaCollection, 'testimages/animals/illustration/white/1.png')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/background/vector/white/2.png')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/buildings/photo/white/1.jpg')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/business/illustration/white/3.jpg')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/computer/vector/white/2.png')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/education/photo/white/2.jpg')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/fashion/illustration/white/1.jpg')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/feelings/vector/white/1.png')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/food/photo/white/1.jpg')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/health/illustration/white/4.jpg')
-    addImageDocumentUnstructured(mediaCollection, 'testimages/industry/vector/white/2.png')
+    addImageDocument(mediaCollection, 'testimages/animals/illustration/white/1.png')
+    addImageDocument(mediaCollection, 'testimages/background/vector/white/2.png')
+    addImageDocument(mediaCollection, 'testimages/buildings/photo/white/1.jpg')
+    addImageDocument(mediaCollection, 'testimages/business/illustration/white/3.jpg')
+    addImageDocument(mediaCollection, 'testimages/computer/vector/white/2.png')
+    addImageDocument(mediaCollection, 'testimages/education/photo/white/2.jpg')
+    addImageDocument(mediaCollection, 'testimages/fashion/illustration/white/1.jpg')
+    addImageDocument(mediaCollection, 'testimages/feelings/vector/white/1.png')
+    addImageDocument(mediaCollection, 'testimages/food/photo/white/1.jpg')
+    addImageDocument(mediaCollection, 'testimages/health/illustration/white/4.jpg')
+    addImageDocument(mediaCollection, 'testimages/industry/vector/white/2.png')
     
     print()
 
