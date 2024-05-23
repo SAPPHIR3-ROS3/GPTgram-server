@@ -55,12 +55,13 @@ def createNewUser(user: str, email: str, passwordHash: str,  connector: connect)
 
     else: return False
 
-def modifyUser(userID: str, connector: connect, email: str = None, passwordHash: str = None):
+def modifyUser(userID: str, user: str, connector: connect, email: str = None, passwordHash: str = None):
     if doesExists(userID, connector):
         with connector:
             cursor = connector.cursor()
 
             if email is not None:
+                userID = getUserID(user, email)
                 cursor.execute("UPDATE users SET email = :email WHERE id = :id", 
                     {'email': email, 'id': userID}
                 )
