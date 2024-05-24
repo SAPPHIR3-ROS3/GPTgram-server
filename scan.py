@@ -34,7 +34,6 @@ def howMaliciousIs(filepath):
                 unsupportedCount += 1
     
     return maliciousCount / (antivirusCount - unsupportedCount)
-    
         
 if __name__ == '__main__':
     load_dotenv()
