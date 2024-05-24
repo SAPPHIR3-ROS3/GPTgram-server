@@ -29,7 +29,7 @@ CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 100
 EXIT_COMMAND = 'exit'
 POPPLERPATH = './dependencies/windows/poppler-24.02.0/Library/bin'
-PDFPATH = 'Relationships between physhical properties and sequence in silkworm silks.pdf'
+PDFPATH = 'on_the_meaning_of_life_chpt1_coda.pdf'
 
 PINK = '\033[95m'
 CYAN = '\033[96m'
@@ -58,7 +58,7 @@ def getID(document, metadata : dict, data = None, uri = None):
 def doesExists(collection : Collection, id : str):
     document = collection.get(id)
 
-    return document is not None
+    return len(document['ids']) != 0
 
 def getPDFMetadata(documentPath : str):
     documentMetadata = PdfReader(documentPath).metadata
@@ -67,7 +67,6 @@ def getPDFMetadata(documentPath : str):
         'author': str(documentMetadata.get('author', 'Unknown author')),
         'creation date': str(documentMetadata.get('creationDate', 'Unknown date')),
         'language': str(documentMetadata.get('language', 'Unknown language')),
-        'adding date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         'uri': documentPath
     }
 
@@ -90,7 +89,7 @@ def addPDFPartMetadata(partIndex : int, pagePartIndex : int, commonMetadata : di
 
 def addTextDocument(collection : Collection, documents : str, metadata : dict):
     id = getID(documents, metadata)
-    
+
     if not doesExists(collection, id):
         collection.add(documents=[documents], metadatas=[metadata], ids=[id])
 
@@ -193,7 +192,6 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
     if not metadata:
         commonMetadata = getPDFMetadata(path)
 
-    addingDate = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     pages = [Array(page) for page in convertFromPDF(path, poppler_path=POPPLERPATH)]
     OCRReader = Reader(['en', 'it', 'es', 'fr', 'de'], gpu=True) #TODO: needs testing
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Reader loaded")}: {path}')
@@ -204,11 +202,9 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
         text = ' '.join([line[1] for line in result])
         pageMetadata = dict()
         pageMetadata['raw OCR'] = result
-        pageMetadata['adding date'] = addingDate 
         pageMetadata['mean confidence'] = str(sum([line[2] for line in result]) / len(result))
         pageMetadata['mode'] = 'OCR'
         pageMetadata['page'] = i
-        # print(f'{greenText("metadata")}: {pageMetadata}')
         pageDocument = Document(page_content=text, metadata=pageMetadata)
 
         document.append(pageDocument)
@@ -239,6 +235,7 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
         lastPage = page
 
         if not doesExists(collection, id):
+            metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document added")}: {path}')
@@ -275,7 +272,8 @@ def addPDFDocument(collection : Collection, path : str, metadata : dict = None, 
         id = getID(parts[i], metadata, uri=path)
         lastPage = page
 
-        if not doesExists(collection, id): 
+        if not doesExists(collection, id):
+            metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document added")}: {path}')
@@ -303,6 +301,7 @@ def queryTextCollection(collection : Collection, query : str, count : int = 3 , 
     result = collection.query(query_texts=[query], n_results=count, include=includes)
     result = {key: result[key][0] for key in result.keys() if result[key] != None}
     orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
+    
     return orderedResult
 
 def queryImageCollection(collection : Collection, imagepath : str, count : int = 3, add_docs : bool = True, add_dists : bool = True, add_metadatas : bool = True, add_uris : bool = False, add_data : bool = False, add_embeddings : bool = False):
@@ -322,8 +321,6 @@ def queryImageCollection(collection : Collection, imagepath : str, count : int =
 
 if __name__ == '__main__':
     filterwarnings("ignore")
-    print(pytesseract.TESSERACT_MIN_VERSION)
-    pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesseract.exe'
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Starting...")}')
     sentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Model loaded")}: {EMBEDDING_MODEL}')
@@ -333,25 +330,26 @@ if __name__ == '__main__':
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Image loader loaded")}')
     openCLIP = OpenCLIPEmbeddingFunction()
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OpenCLIP loaded")}')
-    mediaCollection = ChromaClient.create_collection(name='media-collection', embedding_function=openCLIP, data_loader=imageLoader)
+    # mediaCollection = ChromaClient.create_collection(name='media-collection', embedding_function=openCLIP, data_loader=imageLoader)
     # addTextDocument(collection, 'This is a test document', {'author': 'Marguerite Vasquez'})
     # addTextDocument(collection, 'This is another document', {'author': 'Claudia Parker'})
     # addTextDocument(collection, "Dolores wouldn't have eaten the meal if she had known", {'author': 'Alan Terry'})
     # addTextDocument(collection, 'There were white out conditions in the town', {'author': 'Hulda Lowe'})
     # addTextDocument(collection, 'She had the gift of being able to paint songs', {'author': 'Chad Frazier'})
     
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText(f"{collection.count()} Documents added")}')
     #addPDFDocumentMultiModal(collection, PDFPATH)
-    addImageDocument(mediaCollection, 'testimages/animals/illustration/white/1.png')
-    addImageDocument(mediaCollection, 'testimages/background/vector/white/2.png')
-    addImageDocument(mediaCollection, 'testimages/buildings/photo/white/1.jpg')
-    addImageDocument(mediaCollection, 'testimages/business/illustration/white/3.jpg')
-    addImageDocument(mediaCollection, 'testimages/computer/vector/white/2.png')
-    addImageDocument(mediaCollection, 'testimages/education/photo/white/2.jpg')
-    addImageDocument(mediaCollection, 'testimages/fashion/illustration/white/1.jpg')
-    addImageDocument(mediaCollection, 'testimages/feelings/vector/white/1.png')
-    addImageDocument(mediaCollection, 'testimages/food/photo/white/1.jpg')
-    addImageDocument(mediaCollection, 'testimages/health/illustration/white/4.jpg')
-    addImageDocument(mediaCollection, 'testimages/industry/vector/white/2.png')
+    # addImageDocument(mediaCollection, 'testimages/animals/illustration/white/1.png')
+    # addImageDocument(mediaCollection, 'testimages/background/vector/white/2.png')
+    # addImageDocument(mediaCollection, 'testimages/buildings/photo/white/1.jpg')
+    # addImageDocument(mediaCollection, 'testimages/business/illustration/white/3.jpg')
+    # addImageDocument(mediaCollection, 'testimages/computer/vector/white/2.png')
+    # addImageDocument(mediaCollection, 'testimages/education/photo/white/2.jpg')
+    # addImageDocument(mediaCollection, 'testimages/fashion/illustration/white/1.jpg')
+    # addImageDocument(mediaCollection, 'testimages/feelings/vector/white/1.png')
+    # addImageDocument(mediaCollection, 'testimages/food/photo/white/1.jpg')
+    # addImageDocument(mediaCollection, 'testimages/health/illustration/white/4.jpg')
+    # addImageDocument(mediaCollection, 'testimages/industry/vector/white/2.png')
     
     print()
 
@@ -361,13 +359,17 @@ if __name__ == '__main__':
         if query == EXIT_COMMAND:
             break
         
-        # results = queryTextCollection(collection, query, 5)
-        results = queryImageCollection(mediaCollection, query, 5)
+        results = queryTextCollection(collection, query)
+        # results = queryImageCollection(mediaCollection, query, 5)
 
-        for i in range(len(results)):
-            print(f'{greenText(i+1)} - {results[i]["documents"]}')
-            print(f'    Distance: {results[i]["distances"]}')
-            print(f'    Metadata: {results[i]["metadatas"]}')
+        # for i in range(len(results)):
+        #     print(f'{greenText(i+1)} - {results[i]["documents"]}')
+        #     print(f'    Distance: {results[i]["distances"]}')
+        #     print(f'    Metadata: {results[i]["metadatas"]}')
+        #     print()
+
+        for result in results:
+            print(result)
             print()
         
         print()
