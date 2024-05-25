@@ -30,7 +30,7 @@ def doesExists(userID: str, connector: connect):
         return user is not None
 
 def createNewUser(user: str, email: str, passwordHash: str,  connector: connect):
-    if not doesExists(user, email, connector):
+    if not doesExists(getUserID(user, email), connector):
         with connector:
             cursor = connector.cursor()
             creationDate = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -100,6 +100,17 @@ def deleteUser(userID: str, connector: connect):
     
     else: return False
 
+def login(email: str, passwordHash: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT * FROM users WHERE email = :email AND password_hash = :password_hash", {'email': email, 'password_hash': passwordHash})
+        user = cursor.fetchone()
+
+        if user is not None:
+            return True
+        
+        else: return False
+
 def createCommonData():
     if not exists('common-data'):
         makedirs('common-data')
@@ -127,7 +138,7 @@ def loadDatabase():
                 CREATE TABLE users (
                     id TEXT NOT NULL PRIMARY KEY, 
                     name TEXT NOT NULL, 
-                    email TEXT NOT NULL, 
+                    email TEXT NOT NULL UNIQUE, 
                     password_hash TEXT NOT NULL,
                     created_at TEXT NOT NULL
                     )
