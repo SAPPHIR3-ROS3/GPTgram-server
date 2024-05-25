@@ -22,7 +22,10 @@ from transformers import BlipForConditionalGeneration
 from transformers import BlipProcessor
 from transformers import ViTForImageClassification as Model
 from transformers import ViTImageProcessor as Processor
-from pytesseract import pytesseract
+
+from utils import *
+
+currentLogLevel = INFO_LOG_LEVEL
 
 EMBEDDING_MODEL = 'Alibaba-NLP/gte-large-en-v1.5'
 CHUNK_SIZE = 1000
@@ -102,13 +105,6 @@ def getClassImage(imagepath):
     logits = outputs.logits
     predicted_class_idx = logits.argmax(-1).item()
     classification = str(model.config.id2label[predicted_class_idx])
-
-    # image = Image.open(imagepath).convert('RGB')
-    # inputs = Processor(images=image, return_tensors="pt")
-    # outputs = Model(**inputs)
-    # logits = outputs.logits
-    # predicted_class_idx = logits.argmax(-1).item()
-    # classification = str(Model.config.id2label[predicted_class_idx])
     
     return classification
 
@@ -136,12 +132,10 @@ def addImageDocument(collection : Collection, path : str, metadata : dict = None
     if not metadata:
         metadata = getImageMetadata(path)
     
-    #document = UnstructuredImageLoader(path, 'single').load()
     document = Document(path if not name else name)
     image = Image.open(path).convert('RGB')
     id = getID(image, metadata, uri=path)
-    #print(document)
-    # collection.add(documents=[document], datas=[metadata], ids=[id], uris=[path])
+    
     if not doesExists(collection, id):
         collection.add(documents=[document], metadatas=[metadata], ids=[id], uris=[path])
 
@@ -166,12 +160,7 @@ def addPDFDocumentUnstructured(collection : Collection, path : str, metadata : d
             partMetadata[key] = str(partMetadata[key])
 
         id = getID(parts[i], partMetadata, uri=path)
-        # print(f'{greenText("part")}: {parts[i].page_content}')
-        # print(f'{greenText("metadata")}: {parts[i].metadata}')
-        # print(f'{greenText("metadata")}: {[partMetadata]}')
-        # print(f'{greenText("id")}: {id}')
-        # print(f'{greenText("uri")}: {path}')
-        # print()
+
         if not doesExists(collection, id):
             collection.add(documents=[parts[i].page_content], metadatas=[partMetadata], ids=[id], uris=[path])
 
@@ -194,7 +183,9 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
 
     pages = [Array(page) for page in convertFromPDF(path, poppler_path=POPPLERPATH)]
     OCRReader = Reader(['en', 'it', 'es', 'fr', 'de'], gpu=True) #TODO: needs testing
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Reader loaded")}: {path}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Reader loaded")}: {path}')
+    log(currentLogLevel, INFO_LOG_LEVEL, 'OCR: Reader loaded')
+    
     document = []
 
     for i, page in enumerate(pages):
@@ -209,11 +200,13 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
 
         document.append(pageDocument)
 
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document loaded")}: {path}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document loaded")}: {path}')
+    log(currentLogLevel, INFO_LOG_LEVEL, 'OCR: Document loaded')
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
     parts = splitter.split_documents(document)
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document splitted")}: {len(parts)}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document splitted")}: {len(parts)}')
+    log(currentLogLevel, INFO_LOG_LEVEL, f'OCR: Document splitted: {len(parts)}')
 
     lastPage = None
     currentPartIndex = 0
@@ -238,7 +231,8 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
             metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document added")}: {path}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document added")}: {path}')
+    log(currentLogLevel, INFO_LOG_LEVEL, f'OCR: Document added: {path}')
 
 def addPDFDocument(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
     if not metadata:
@@ -246,13 +240,16 @@ def addPDFDocument(collection : Collection, path : str, metadata : dict = None, 
 
     documentName = datetime.now().strftime('%Y%m%d') + path.split('/')[-1].split('.')[0]
     document = PyPDFLoader(path, extract_images=True).load()
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document loaded")}: {path}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document loaded")}: {path}')
+    log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Document loaded: {path}')
     images = extractImagesFromPDF(path) #TODO: Add images to the collection
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Images extracted")}: {len(images)}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Images extracted")}: {len(images)}')
+    log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Images extracted: {len(images)}')
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
     parts = splitter.split_documents(document)
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document splitted")}: {len(parts)}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document splitted")}: {len(parts)}')
+    log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Document splitted: {len(parts)}')
 
     lastPage = None
     currentPartIndex = 0
@@ -276,9 +273,10 @@ def addPDFDocument(collection : Collection, path : str, metadata : dict = None, 
             metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document added")}: {path}')
+    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document added")}: {path}')
+    log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Document added: {path}')
 
-    if images:
+    if images: # TODO: needs testing
         for i, image in enumerate(images):
             path = f'{imagesPath}/{documentName+str(i+1)}.png'
             image.save(path)
