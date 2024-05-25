@@ -8,8 +8,12 @@ from os.path import exists
 from shutil import rmtree
 from sqlite3 import connect
 
+from utils import *
+
 DBPATH = 'database.db'
 USERSDATAPATH = 'users-data'
+
+currentLogLevel = INFO_LOG_LEVEL
 
 def getUserID(username: str, email: str):
     IDText = f'{email}{username}'.encode('utf-8')
@@ -35,6 +39,8 @@ def createNewUser(user: str, email: str, passwordHash: str,  connector: connect)
                 {'id': userID, 'name': user, 'email': email, 'password_hash': passwordHash, 'created_at': creationDate}
             )
 
+            log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} created')
+
         userPath = f'users-data/{user}'
         userChatsPath = f'{userPath}/chats'
         userPDFPath = f'{userPath}/pdfs'
@@ -50,6 +56,8 @@ def createNewUser(user: str, email: str, passwordHash: str,  connector: connect)
         makedirs(userPPTXPath)
         makedirs(userImagesPath)
         makedirs(userAudiosPath)
+
+        log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} directories created')
         
         return True
 
@@ -65,11 +73,13 @@ def modifyUser(userID: str, user: str, connector: connect, email: str = None, pa
                 cursor.execute("UPDATE users SET email = :email WHERE id = :id", 
                     {'email': email, 'id': userID}
                 )
+                log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} email updated')
             
             if passwordHash is None:
                 cursor.execute("UPDATE users SET password_hash = :password_hash WHERE id = :id", 
                     {'password_hash': passwordHash, 'id': userID}
                 )
+                log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} password updated')
 
         return True
     
@@ -80,9 +90,11 @@ def deleteUser(userID: str, connector: connect):
         with connector:
             cursor = connector.cursor()
             cursor.execute("DELETE FROM users WHERE id = :id", {'id': userID})
+            log(currentLogLevel, INFO_LOG_LEVEL, f'User {userID} deleted')
             
         userPath = f'users-data/{userID}'
         rmtree(userPath)
+        log(currentLogLevel, INFO_LOG_LEVEL, f'User {userID} data deleted')
 
         return True
     
@@ -96,9 +108,12 @@ def createCommonData():
         makedirs('common-data/images')
         makedirs('common-data/audios')
 
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Common data directories created')
+
 def deleteCommonData(confirm: bool = False):
     if confirm:
         rmtree('common-data')
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Common data deleted')
 
 def loadDatabase():
     dirpath = dirname(DBPATH)
@@ -118,6 +133,7 @@ def loadDatabase():
                     )
                 ''')
             cursor.commit()
+            log(currentLogLevel, INFO_LOG_LEVEL, 'Database created')
 
     if not exists(USERSDATAPATH):
         makedirs(USERSDATAPATH)
@@ -132,6 +148,7 @@ def loadDatabase():
 def createUsersData():
     if not exists(USERSDATAPATH):
         makedirs(USERSDATAPATH)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Users data directories created')
 
         return True
     
@@ -140,6 +157,7 @@ def createUsersData():
 def deleteUsersData(connector: connect, confirm: bool = False):
     if confirm:
         rmtree(USERSDATAPATH)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Users data deleted')
 
         with connector:
             cursor = connector.cursor()
@@ -149,13 +167,17 @@ def deleteUsersData(connector: connect, confirm: bool = False):
             for table in tables:
                 cursor.execute(f"DROP TABLE {table[0]}")
                 cursor.commit()
+
+            log(currentLogLevel, INFO_LOG_LEVEL, 'Database deleted')
             
         connector.close()
         remove(DBPATH)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Database file deleted')
 
 def setupData():
     createUsersData()
     createCommonData()
+    log(currentLogLevel, INFO_LOG_LEVEL, 'Data setup completed')
 
     return loadDatabase()
 
@@ -163,3 +185,4 @@ def deleteAllData(connector: connect, confirm: bool = False):
     if confirm:
         deleteUsersData(connector, confirm)
         deleteCommonData(confirm)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'All data deleted')
