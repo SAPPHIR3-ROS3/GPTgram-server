@@ -11,3 +11,4 @@ __pycache__
 *.bin
 *.zip
 *.sqlite3
+*.wav
