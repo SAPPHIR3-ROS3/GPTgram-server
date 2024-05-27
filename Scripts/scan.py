@@ -5,6 +5,7 @@ from vt import Client
 MB = 1024 * 1024
 
 def isMalicious(filepath):
+    load_dotenv('./config/.env')
     file = open(filepath, 'rb')
     
     with Client(getenv('VIRUSTOTAL_API_KEY')) as client:
@@ -18,6 +19,7 @@ def isMalicious(filepath):
         return False
     
 def howMaliciousIs(filepath):
+    load_dotenv('./config/.env')
     file = open(filepath, 'rb')
 
     with Client(getenv('VIRUSTOTAL_API_KEY')) as client:
