@@ -15,6 +15,7 @@ from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_core.documents.base import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from numpy import array as Array
+from os import getcwd as currentDirectory
 from PIL import Image
 from pdf2image import convert_from_path as convertFromPDF
 from pypdf import PdfReader
@@ -32,7 +33,7 @@ EMBEDDING_MODEL = 'Alibaba-NLP/gte-large-en-v1.5'
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 100
 EXIT_COMMAND = 'exit'
-POPPLERPATH = './dependencies/windows/poppler-24.02.0/Library/bin'
+POPPLERPATH = '../dependencies/windows/poppler-24.02.0/Library/bin'
 PDFPATH = 'on_the_meaning_of_life_chpt1_coda.pdf'
 
 PINK = '\033[95m'
@@ -48,7 +49,8 @@ cyanText = lambda text: f'{CYAN}{text}{END}'
 yellowText = lambda text: f'{YELLOW}{text}{END}'
 greenText = lambda text: f'{GREEN}{text}{END}'
 
-ChromaClient = Client(Settings(anonymized_telemetry=False))
+ChromaClient = None
+SentenceTransformer = None
 
 def getID(document, metadata : dict, data = None, uri = None):
     document = str(document)
@@ -318,17 +320,76 @@ def queryImageCollection(collection : Collection, imagepath : str, count : int =
     orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
     return orderedResult
 
-def createUserVectorDatabase(user: str):
-    # userClient = PersistentClient()
-    pass
+def createOrGetUserVectorDatabase(user: str):
+    SentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
+    UserClient = PersistentClient(f'../users-data/{user}', Settings(anonymized_telemetry=False))
+    
+    if not UserClient:
+        return None
+    
+    userCollection  = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer)
 
+    if not userCollection:
+        return None
+    
+    mediaCollection = UserClient.get_or_create_collection(name='media-collection', embedding_function=OpenCLIPEmbeddingFunction(), data_loader=ImageLoader())
+
+    if not mediaCollection:
+        return None
+    
+    return UserClient
+
+def getUserTextCollection(user: str):
+    UserClient = createOrGetUserVectorDatabase(user)
+    SentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
+    UserCollection = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer)
+
+    return UserCollection
+
+def addTextDocumentToUserCollection(user: str, document: str, metadata: dict, AI: str = '', AIDocument: str = '', AIMetadata: dict = None):
+    if not metadata:
+        metadata = dict()
+        metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        metadata['mode'] = 'text'
+        metadata['author'] = user
+        log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} metadata created')
+
+    UserClient = createOrGetUserVectorDatabase(user)
+    log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} database loaded')
+    UserColletion = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer)
+    log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} collection loaded')
+    addTextDocument(UserColletion, document, metadata)
+    log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} document added')
+
+    if AI and AIDocument:
+        if not AIMetadata:
+            AIMetadata = dict()
+            AIMetadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            AIMetadata['author'] = AI
+            AIMetadata['mode'] = 'AI'
+            log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} AI metadata created')
+
+        addTextDocument(UserColletion, AIDocument, AIMetadata)
+        log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} AI document added')
+
+def queryUserTextCollection(user: str, query: str, count: int = 3, add_docs: bool = True, add_dists: bool = True, add_metadatas: bool = True, add_uris: bool = False, add_data: bool = False, add_embeddings: bool = False):
+    UserClient = createOrGetUserVectorDatabase(user)
+    log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} database loaded')
+    UserCollection = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer)
+    log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} collection loaded')
+    result = queryTextCollection(UserCollection, query, count, add_docs, add_dists, add_metadatas, add_uris, add_data, add_embeddings)
+    log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} query executed')
+    
+    return result
 
 if __name__ == '__main__':
     filterwarnings("ignore")
+    ChromaClient = PersistentClient(currentDirectory(), Settings(anonymized_telemetry=False))
+
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Starting...")}')
     sentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Model loaded")}: {EMBEDDING_MODEL}')
-    collection = ChromaClient.create_collection(name='test-collection', embedding_function=sentenceTransformer)
+    collection = ChromaClient.create_collection(name='test-collection', embedding_function=SentenceTransformer)
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Collection created")}: test-collection')
     imageLoader = ImageLoader()
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Image loader loaded")}')
