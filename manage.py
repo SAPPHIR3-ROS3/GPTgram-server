@@ -137,7 +137,7 @@ def loadDatabase():
             cursor.execute('''
                 CREATE TABLE users (
                     id TEXT NOT NULL PRIMARY KEY, 
-                    name TEXT NOT NULL, 
+                    name TEXT NOT NULL UNIQUE, 
                     email TEXT NOT NULL UNIQUE, 
                     password_hash TEXT NOT NULL,
                     created_at TEXT NOT NULL
