@@ -1,8 +1,8 @@
 from datetime import datetime
 
 ERROR_LOG_LEVEL = 0
-DEBUG_LOG_LEVEL = 1
-INFO_LOG_LEVEL = 2
+INFO_LOG_LEVEL = 1
+DEBUG_LOG_LEVEL = 2
 RESULT_LOG_LEVEL = 3
 
 RED = '\033[91m'
@@ -20,15 +20,15 @@ grayText = lambda text: f'{GRAY}{text}{END}'
 
 logColor = {
     ERROR_LOG_LEVEL: redText,
-    DEBUG_LOG_LEVEL: yellowText,
     INFO_LOG_LEVEL: greenText,
+    DEBUG_LOG_LEVEL: yellowText,
     RESULT_LOG_LEVEL: cyanText
 }
 
 logLevel = {
     ERROR_LOG_LEVEL: 'ERROR',
-    DEBUG_LOG_LEVEL: 'DEBUG',
     INFO_LOG_LEVEL: 'INFO',
+    DEBUG_LOG_LEVEL: 'DEBUG',
     RESULT_LOG_LEVEL: 'RESULT'
 }
 
