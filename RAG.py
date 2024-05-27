@@ -1,4 +1,5 @@
 from chromadb import Client
+from chromadb import Collection
 from chromadb import PersistentClient
 from chromadb import Settings
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
@@ -20,13 +21,7 @@ from VectorChromaDB import queryTextCollection
 currentLogLevel = RESULT_LOG_LEVEL
 
 EXIT_COMMAND = 'exit'
-PINK = '\033[95m'
-CYAN = '\033[96m'
-YELLOW = '\033[93m'
-GREEN = '\033[92m'
-END = '\033[0m'
-MODEL = 'test'
-
+SEPARATOR = '\n\n---\n\n'
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
 MULTIQUERYPROMPT = PromptTemplate.from_template(
@@ -59,17 +54,48 @@ RELEVANCEPROMPT = PromptTemplate.from_template(
 
     retrieved context: {context}
     user question: {question}
+
     ---
+
     (Provide a binary answer "yes" or "no, no other information is permitted, respond in lowercase) 
     Does the context contain relevant information to the user question?
     """
 )
 
-pinkText = lambda text: f'{PINK}{text}{END}'
-cyanText = lambda text: f'{CYAN}{text}{END}'
-yellowText = lambda text: f'{YELLOW}{text}{END}'
-greenText = lambda text: f'{GREEN}{text}{END}'
+TITLECHATPROMPT = ChatPromptTemplate.from_template(
+    """
+    You are an AI language model assistant. Your task is to generate a title 
+    for the chat between the user and the AI. The title should be a concise
+    summary of the chat content and as short as possible.
+    
+    user: {user}
+    AI: {AI}
 
+    ---
+
+    (Provide only the title for the chat, no other information is permitted)
+    What is the title of the chat?
+    """
+)
+
+class Response:
+    def __init__(self, context: list, response : str = ''):
+        self.response = response
+        self.context = context
+
+    def __str__(self):
+        return self.response
+    
+    def getContext(self):
+        return self.context
+    
+    def getFormattedContext(self):
+        formattedContext = '\n\n---\n\n'.join([doc['documents'] for doc in self.context])
+        return formattedContext
+    
+    def setResponse(self, response):
+        self.response = response
+    
 def expandQuery(llm : ChatOllama, prompt, numQueries=5):
     temperature = llm.temperature
     llm.temperature = 0.9
@@ -102,6 +128,32 @@ def isRelevant(llm: ChatOllama, context : str, prompt : str):
     
     else: raise ValueError(f'Invalid response: {response}')
 
+def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collection, expandQuery : bool = True, numQueries=5):
+    results = []
+
+    if expandQuery:
+        queries = expandQuery(llm, PROMPT, numQueries)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Query expanded')
+
+        for query in queries:
+            results.extend(queryTextCollection(collection, query))
+
+    results.extend(queryTextCollection(collection, PROMPT, 5))
+    log(currentLogLevel, INFO_LOG_LEVEL, 'Retrieved documents')
+    results = sorted(results, key=lambda x: x['distances'])
+    log(currentLogLevel, INFO_LOG_LEVEL, 'Documents sorted by distance')
+    results = [result for result in results if [result['ids'] for result in results].count(result['ids']) == 1]
+    log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by uniqueness')
+    results = [result for result in results if isRelevant(llm, result, prompt)]
+    log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by relevance')
+    AIMessage = Response(results)
+    message = ANSWERPROMPT.format(context=AIMessage.getFormattedContext(), question=prompt)
+    response = llm.invoke(message).content
+    log(currentLogLevel, INFO_LOG_LEVEL, 'Response generated')
+    AIMessage.setResponse(response)
+
+    return AIMessage
+
 if __name__ == '__main__':
     filterwarnings("ignore")
     ChromaClient = PersistentClient(currentDirectory(), Settings(anonymized_telemetry=False))
@@ -119,47 +171,6 @@ if __name__ == '__main__':
 
     PROMPT = 'What is the meaning of life?'
     llm = ChatOllama(model=MODEL, num_gpu=32)
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Model loaded")}')
-    # log(currentLogLevel, INFO_LOG_LEVEL, 'Model loaded')
-    queries = expandQuery(llm, PROMPT)
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Query expanded")}')
-    # log(currentLogLevel, INFO_LOG_LEVEL, 'Query expanded')
-    results = queryTextCollection(collection, PROMPT, 20)
-
-    # for query in queries:
-        # results.extend(queryTextCollection(collection, query))
-
-    # results.extend(queryTextCollection(collection, PROMPT, 5))
-
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Retrieved documents")}')
-    log(currentLogLevel, INFO_LOG_LEVEL, 'Retrieved documents')
-
-    # uniqueResults = []
-
-    # for result in results:
-    #     if result['ids'] not in [doc['ids'] for doc in uniqueResults]:
-    #         uniqueResults.append(result)
-    
-    uniqueResults = sorted(results, key=lambda x: x['distances'])
-    # log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by uniqueness ({(len(uniqueResults)/ len(results)) * 100 :.2f} %  of the original results)')
-
-    refinedResults = []
-
-    for result in uniqueResults:
-        if isRelevant(llm, result, PROMPT):
-            refinedResults.append(result)
-            
-    log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by relevance ({(len(refinedResults)/ len(uniqueResults)) * 100 :.2f} % of the unique results)')
-
-
-    document_context = [result['documents'] for result in uniqueResults]
-    context = '\n\n---\n\n'.join(document_context)
-    message = ANSWERPROMPT.format(context=context, question=PROMPT)
-    response = llm.invoke(message).content
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Response generated")}')
-    log(currentLogLevel, INFO_LOG_LEVEL, 'Response generated')
-
-    # print (cyanText(message))
-    # print (greenText(response))
-    log(currentLogLevel, INFO_LOG_LEVEL, '', {'message': message})
+    response = generateRelevantResponse(llm, PROMPT, collection)
+    message = ANSWERPROMPT.format(context=response.getFormattedContext(), question=PROMPT)
     log(currentLogLevel, RESULT_LOG_LEVEL, response)
