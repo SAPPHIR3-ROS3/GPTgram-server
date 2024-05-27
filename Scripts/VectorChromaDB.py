@@ -1,5 +1,6 @@
 from chromadb import Client
 from chromadb import Collection
+from chromadb import PersistentClient
 from chromadb.config import Settings
 from chromadb.utils.data_loaders import ImageLoader
 from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
@@ -23,7 +24,7 @@ from transformers import BlipProcessor
 from transformers import ViTForImageClassification as Model
 from transformers import ViTImageProcessor as Processor
 
-from utils import *
+from Scripts.utils import *
 
 currentLogLevel = INFO_LOG_LEVEL
 
@@ -316,6 +317,11 @@ def queryImageCollection(collection : Collection, imagepath : str, count : int =
     result = {key: result[key][0] for key in result.keys() if result[key] != None}
     orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
     return orderedResult
+
+def createUserVectorDatabase(user: str):
+    # userClient = PersistentClient()
+    pass
+
 
 if __name__ == '__main__':
     filterwarnings("ignore")
