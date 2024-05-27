@@ -9,3 +9,5 @@ clients.json
 *.ipynb
 __pycache__
 *.bin
+*.zip
+*.sqlite3
