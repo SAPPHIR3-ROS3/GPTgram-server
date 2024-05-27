@@ -14,9 +14,9 @@ from warnings import filterwarnings
 
 from utils import * 
 from VectorChromaDB import EMBEDDING_MODEL
-from VectorChromaDB import addTextDocument
 from VectorChromaDB import addPDFDocument
-from VectorChromaDB import queryTextCollection 
+from VectorChromaDB import getUserTextCollection
+from VectorChromaDB import queryTextCollection
 
 currentLogLevel = RESULT_LOG_LEVEL
 
@@ -128,7 +128,7 @@ def isRelevant(llm: ChatOllama, context : str, prompt : str):
     
     else: raise ValueError(f'Invalid response: {response}')
 
-def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collection, expandQuery : bool = True, numQueries=5):
+def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collection, expandQuery : bool = False, numQueries=5):
     results = []
 
     if expandQuery:
@@ -153,6 +153,12 @@ def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collect
     AIMessage.setResponse(response)
 
     return AIMessage
+
+def respondtoUser(llm: ChatOllama, user: str, prompt, chatID: str):
+    collection = getUserTextCollection(user)
+    response = generateRelevantResponse(llm, prompt, collection)
+
+    return response
 
 if __name__ == '__main__':
     filterwarnings("ignore")
