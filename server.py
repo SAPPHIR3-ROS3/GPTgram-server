@@ -1,41 +1,14 @@
 import asyncio
 import websockets
 import json
-import hashlib
-import os
-import binascii
-import sys
-import base64
 from time import sleep
+from manage import *
 
 TYPE_REGISTER_MESSAGE = "register"  # Tipo di messaggio per la registrazione
 TYPE_LOGIN_MESSAGE = "login"        # Tipo di messaggio per il login
 TYPE_CHAT_MESSAGE = "chat";     # Tipo di messaggio per la chat
-CLIENTS_FILE = 'clients.json'       # File per memorizzare i dati dei client
 
-
-
-# Dizionario per memorizzare le email e le password dei client
-clients = {}
-
-
-# Salva i dati dei client alla chiusura del server
-def save_clients():
-    if not os.path.exists(CLIENTS_FILE):
-        with open(CLIENTS_FILE, 'w') as f:
-            pass
-    with open(CLIENTS_FILE, 'w') as f:
-        json.dump(clients, f)
-
-# Carica i dati dei client all'avvio del server
-if os.path.exists(CLIENTS_FILE) and os.path.getsize(CLIENTS_FILE) > 0:
-    with open(CLIENTS_FILE, 'r') as f:
-        try:
-            clients = json.load(f)
-        except json.JSONDecodeError:
-            print("Error decoding JSON from file")
-            sys.exit(1)
-
+currentLogLevel = INFO_LOG_LEVEL
 
 # Funzione per gestire messaggi al client
 async def handle_message(websocket, data):
@@ -45,72 +18,58 @@ async def handle_message(websocket, data):
     }
     # Invia il messaggio di echo al client
     sleep(2) # TODO: Rimuovere questa riga
-    print(f"echo message: {echo_message['message']}")
+    log(currentLogLevel, INFO_LOG_LEVEL, "Echoing message", {'message': data['message']})
     await websocket.send(json.dumps(echo_message))
     
 
 #registrazione clients
 async def handle_register(websocket, data):
-    # Gestisci la registrazione qui...
-    print(f"Handling register for {data['email']}")
+    # RACCOLTA DATI
+    log(currentLogLevel, INFO_LOG_LEVEL, "Handling registration for", {'email': data['email']})
+    username = data['username']
     email = data['email']
-    if (email in clients):
-        print(f"Email {email} already registered")
-        await websocket.send(json.dumps({
-            'status': 'error',
-            'message': 'Email already registered'
-        }))
-        return
     password = data['password']
-    # Crea un sale
-    salt = os.urandom(32)
-    # Crea un hash della password con il sale
-    key = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
-    # Memorizza il sale e l'hash della password
-    clients[email] = {
-        'salt': base64.b64encode(salt).decode('utf-8'),
-        'key': base64.b64encode(key).decode('utf-8')
-    }
-    # Crea un messaggio di successo
-    success_message = {
-        'status': 'success',
-        'message': 'Registration successful'
-    }
+
+    #controllo se l'email è già stata registrata
+    connector = loadDatabase()
+    userID = getUserID(username, email)
+    if (doesExists(userID, connector )):
+        log(currentLogLevel, ERROR_LOG_LEVEL, "User already exists", {'email': email})
+        await websocket.send(json.dumps({ 'status': 'error', 'message': 'User already exists' }))
+        return
+    createNewUser(username, email, password, connector)
+
     # Invia il messaggio di successo al client
-    save_clients()
-    await websocket.send(json.dumps(success_message))
+    log(currentLogLevel, INFO_LOG_LEVEL, "Registration successful", {'email': email})
+    await websocket.send(json.dumps({'status': 'success', 'message': 'Registration successful'}))
 
 
 # Gestione del login
-
 async def handle_login(websocket, data): 
-    print(f"Handling login for {data['email']}") 
-    email = data['email'] 
-    if (email not in clients): 
-        print(f"Email {email} not registered") 
-        await websocket.send(json.dumps({ 'status': 'error', 'message': 'Email not registered' })) 
-        return 
-    password = data['password'] 
-    salt = clients[email]['salt']
-    print(f"Salt before decoding: {salt}")
-    try:
-        salt = base64.b64decode(salt)
-    except binascii.Error as e:
-        print(f"Error decoding salt: {e}")
+    connector = loadDatabase()
+    email = data['email']
+    log(currentLogLevel, INFO_LOG_LEVEL, "Handling login for", {'email': email})
+    if (not doesExists(getUserID("", email), connector)):
+        log(currentLogLevel, ERROR_LOG_LEVEL, "User does not exist", {'email': email})
+        await websocket.send(json.dumps({ 'status': 'error', 'message': 'User does not exist' }))
+
         return
-    print(f"Salt after decoding: {salt}")
-    key = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
-    stored_key = base64.b64decode(clients[email]['key'])
-    if (key == stored_key): 
-        print(f"Login successful for {email}") 
-        await websocket.send(json.dumps({ 'status': 'success', 'message': 'Login successful' })) 
-    else: 
-        print(f"Login failed for {email}") 
-        await websocket.send(json.dumps({ 'status': 'error', 'message': 'Login failed' })) 
-    #adesso mandare al client qualcosa che faccia in modo di passare alla pagina di chat
+    
+    passwordList = list(data['password'])
+    for i in range(len(passwordList)):
+        password = passwordList[i]
+        if (login(email, password, connector)):
+            log(currentLogLevel, INFO_LOG_LEVEL, "Login successful", {'email': email})
+            await websocket.send(json.dumps({ 'status': 'success', 'message': 'Login successful' }))
+            #TODO reindirizza ora il client alla chat 
+            return
+        
+    log(currentLogLevel, ERROR_LOG_LEVEL, "Wrong password", {'email': email})
+    await websocket.send(json.dumps({ 'status': 'error', 'message': 'Wrong password' }))
 
+    return
 
-
+# Funzione per gestire i messaggi
 async def handler(websocket, path):
     async for message in websocket:
         if message:
@@ -125,7 +84,7 @@ async def handler(websocket, path):
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
             except json.JSONDecodeError:
-                print(f"Received a message that's not valid JSON: {message}")
+                log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': message})
 
 start_server = websockets.serve(handler, "localhost", 8765)
 
