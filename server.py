@@ -11,7 +11,7 @@ TYPE_REGISTER_MESSAGE = "register"  # Tipo di messaggio per la registrazione
 TYPE_LOGIN_MESSAGE = "login"        # Tipo di messaggio per il login
 TYPE_CHAT_MESSAGE = "chat";     # Tipo di messaggio per la chat
 
-currentLogLevel = INFO_LOG_LEVEL
+currentLogLevel = DEBUG_LOG_LEVEL
 
 # Funzione per gestire messaggi al client
 async def handle_message(websocket, data):
@@ -39,7 +39,7 @@ async def handle_register(websocket, data):
     log(currentLogLevel, INFO_LOG_LEVEL, "Handling registration for", {'email': data['email']})
     username = data['username']
     email = data['email']
-    password = str(data['password'])
+    password = data['password']
 
     #controllo se l'email è già stata registrata
     connector = loadDatabase()
@@ -48,6 +48,8 @@ async def handle_register(websocket, data):
         log(currentLogLevel, ERROR_LOG_LEVEL, "User already exists", {'email': email})
         await websocket.send(json.dumps({ 'status': 'error', 'message': 'User already exists' }))
         return
+    
+    log(currentLogLevel, DEBUG_LOG_LEVEL, "Creating new user", {'email': email, 'username': username, 'password': password})
     createNewUser(username, email, password, connector)
 
     # Invia il messaggio di successo al client
