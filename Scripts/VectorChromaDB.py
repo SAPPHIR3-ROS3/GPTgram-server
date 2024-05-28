@@ -301,7 +301,7 @@ def queryTextCollection(collection : Collection, query : str, count : int = 3 , 
 
     result = collection.query(query_texts=[query], n_results=count, include=includes)
     result = {key: result[key][0] for key in result.keys() if result[key] != None}
-    orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(count)]
+    orderedResult = [{key: result[key][i] for key in result.keys()} for i in range(len(result['documents']))]
     
     return orderedResult
 
