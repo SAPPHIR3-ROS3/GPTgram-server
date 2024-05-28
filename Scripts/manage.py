@@ -143,7 +143,7 @@ def loadDatabase():
                     created_at TEXT NOT NULL
                     )
                 ''')
-            cursor.commit()
+            connector.commit()
             log(currentLogLevel, INFO_LOG_LEVEL, 'Database created')
 
     if not exists(USERSDATAPATH):
@@ -177,7 +177,7 @@ def deleteUsersData(connector: connect, confirm: bool = False):
 
             for table in tables:
                 cursor.execute(f"DROP TABLE {table[0]}")
-                cursor.commit()
+                connector.commit()
 
             log(currentLogLevel, INFO_LOG_LEVEL, 'Database deleted')
             
