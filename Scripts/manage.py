@@ -8,7 +8,7 @@ from os.path import exists
 from shutil import rmtree
 from sqlite3 import connect
 
-from utils import *
+from Scripts.utils import *
 
 DBPATH = 'database.db'
 USERSDATAPATH = 'users-data'

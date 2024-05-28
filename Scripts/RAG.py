@@ -4,19 +4,17 @@ from chromadb import PersistentClient
 from chromadb import Settings
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from datetime import datetime
-from langchain.chat_models.ollama import ChatOllama
 from langchain.prompts import ChatPromptTemplate
 from langchain.prompts import PromptTemplate
-from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.vectorstores.chroma import Chroma
+from langchain_community.chat_models.ollama import ChatOllama
 from os import getcwd as currentDirectory
 from warnings import filterwarnings
 
-from utils import * 
-from VectorChromaDB import EMBEDDING_MODEL
-from VectorChromaDB import addPDFDocument
-from VectorChromaDB import getUserTextCollection
-from VectorChromaDB import queryTextCollection
+from Scripts.utils import * 
+from Scripts.VectorChromaDB import EMBEDDING_MODEL
+from Scripts.VectorChromaDB import addPDFDocument
+from Scripts.VectorChromaDB import getUserTextCollection
+from Scripts.VectorChromaDB import queryTextCollection
 
 currentLogLevel = RESULT_LOG_LEVEL
 
@@ -161,7 +159,7 @@ def respondtoUser(llm: ChatOllama, user: str, prompt, chatID: str):
     return response
 
 if __name__ == '__main__':
-    filterwarnings("ignore")
+    # filterwarnings("ignore")
     ChromaClient = PersistentClient(currentDirectory(), Settings(anonymized_telemetry=False))
     #print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Client created")}')
     log(currentLogLevel, INFO_LOG_LEVEL, 'Client created')

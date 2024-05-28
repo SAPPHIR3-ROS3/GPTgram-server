@@ -1,5 +1,5 @@
 import asyncio
-from langchain.chat_models.ollama import ChatOllama
+from langchain_community.chat_models.ollama import ChatOllama
 import websockets
 import json
 from time import sleep
