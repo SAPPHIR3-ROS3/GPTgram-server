@@ -158,6 +158,12 @@ def respondtoUser(llm: ChatOllama, user: str, prompt, chatID: str):
 
     return response
 
+def getChatTitle(llm: ChatOllama, user: str, AI: str):
+    message = TITLECHATPROMPT.format(user=user, AI=AI)
+    title = llm.invoke(message).content
+
+    return title
+
 if __name__ == '__main__':
     # filterwarnings("ignore")
     ChromaClient = PersistentClient(currentDirectory(), Settings(anonymized_telemetry=False))
