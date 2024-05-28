@@ -1,8 +1,11 @@
 import asyncio
+from langchain.chat_models.ollama import ChatOllama
 import websockets
 import json
 from time import sleep
-from manage import *
+from Scripts.manage import *
+from Scripts.RAG import respondtoUser
+from Scripts.VectorChromaDB import addTextDocumentToUserCollection
 
 TYPE_REGISTER_MESSAGE = "register"  # Tipo di messaggio per la registrazione
 TYPE_LOGIN_MESSAGE = "login"        # Tipo di messaggio per il login
@@ -12,12 +15,20 @@ currentLogLevel = INFO_LOG_LEVEL
 
 # Funzione per gestire messaggi al client
 async def handle_message(websocket, data):
+    llm = ChatOllama()
+    username = data['user']
+    # email = data['email']
+    chatID = data['chatID']
+    message = data['message']
+    
+    response = respondtoUser(llm, username, message, chatID)
+
     echo_message = {
         'typeMessage': TYPE_CHAT_MESSAGE,
-        'message': f"Echo: {data['message']}"
+        'message': str(response),
     }
     # Invia il messaggio di echo al client
-    sleep(2) # TODO: Rimuovere questa riga
+    # sleep(2) # TODO: Rimuovere questa riga
     log(currentLogLevel, INFO_LOG_LEVEL, "Echoing message", {'message': data['message']})
     await websocket.send(json.dumps(echo_message))
     
