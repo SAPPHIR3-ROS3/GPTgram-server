@@ -136,7 +136,7 @@ def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collect
         for query in queries:
             results.extend(queryTextCollection(collection, query))
 
-    results.extend(queryTextCollection(collection, PROMPT, 5))
+    results.extend(queryTextCollection(collection, prompt, 5))
     log(currentLogLevel, INFO_LOG_LEVEL, 'Retrieved documents')
     results = sorted(results, key=lambda x: x['distances'])
     log(currentLogLevel, INFO_LOG_LEVEL, 'Documents sorted by distance')
