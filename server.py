@@ -39,7 +39,7 @@ async def handle_register(websocket, data):
     log(currentLogLevel, INFO_LOG_LEVEL, "Handling registration for", {'email': data['email']})
     username = data['username']
     email = data['email']
-    password = data['password']
+    password = str(data['password'])
 
     #controllo se l'email è già stata registrata
     connector = loadDatabase()
