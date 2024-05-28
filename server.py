@@ -18,7 +18,7 @@ async def handle_message(websocket, data):
     llm = ChatOllama()
     username = data['user']
     # email = data['email']
-    chatID = data['chatID']
+    chatID = data['chatId']
     message = data['message']
     
     response = respondtoUser(llm, username, message, chatID)
