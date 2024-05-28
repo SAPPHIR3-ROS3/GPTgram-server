@@ -21,6 +21,14 @@ def getUserID(username: str, email: str):
 
     return IDHash
 
+def getUsername(email: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT name FROM users WHERE email = :email", {'email': email})
+        user = cursor.fetchone()[0]
+
+        return user
+
 def doesExists(userID: str, connector: connect):
     with connector:
         cursor = connector.cursor()
@@ -197,3 +205,4 @@ def deleteAllData(connector: connect, confirm: bool = False):
         deleteUsersData(connector, confirm)
         deleteCommonData(confirm)
         log(currentLogLevel, INFO_LOG_LEVEL, 'All data deleted')
+        

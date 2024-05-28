@@ -61,8 +61,9 @@ async def handle_register(websocket, data):
 async def handle_login(websocket, data): 
     connector = loadDatabase()
     email = data['email']
+    user = getUsername(email, connector)
     log(currentLogLevel, INFO_LOG_LEVEL, "Handling login for", {'email': email})
-    if (not doesExists(getUserID("", email), connector)):
+    if (not doesExists(getUserID(user, email), connector)):
         log(currentLogLevel, ERROR_LOG_LEVEL, "User does not exist", {'email': email})
         await websocket.send(json.dumps({ 'status': 'error', 'message': 'User does not exist' }))
 
