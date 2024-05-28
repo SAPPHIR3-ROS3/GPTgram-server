@@ -52,3 +52,6 @@ echo ^[[32m"VirusTotal installed successfully."^[[0m
 
 pip install transformers --no-cache-dir
 echo ^[[32m"Transformers installed successfully."^[[0m
+
+pip install open-clip-torch --no-cache-dir
+echo ^[[32m"Open-clip-torch installed successfully."^[[0m

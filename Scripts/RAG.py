@@ -130,7 +130,7 @@ def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collect
     results = []
 
     if expandQuery:
-        queries = expandQuery(llm, PROMPT, numQueries)
+        queries = expandQuery(llm, prompt, numQueries)
         log(currentLogLevel, INFO_LOG_LEVEL, 'Query expanded')
 
         for query in queries:
