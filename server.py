@@ -11,11 +11,13 @@ TYPE_REGISTER_MESSAGE = "register"  # Tipo di messaggio per la registrazione
 TYPE_LOGIN_MESSAGE = "login"        # Tipo di messaggio per il login
 TYPE_CHAT_MESSAGE = "chat";     # Tipo di messaggio per la chat
 
+MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
+
 currentLogLevel = DEBUG_LOG_LEVEL
 
 # Funzione per gestire messaggi al client
 async def handle_message(websocket, data):
-    llm = ChatOllama()
+    llm = ChatOllama(model=MODEL)
     username = data['user']
     # email = data['email']
     chatID = data['chatId']
