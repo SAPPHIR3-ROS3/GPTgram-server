@@ -1,4 +1,5 @@
 from datetime import datetime
+from json import load
 
 ERROR_LOG_LEVEL = 0
 INFO_LOG_LEVEL = 1
@@ -48,3 +49,8 @@ def log(currentLogLevel, level, message, parameters: dict = None):
     logMessage = f'[{date}][{type}] {message} {parameters if parameters else ""}'
 
     print(logMessage)
+
+def retrieveTitles(user: str):
+    with open(f'../users-data/{user}/info.json') as file:
+        data = load(file)
+        return data['titles']
