@@ -4,6 +4,8 @@ from chromadb import PersistentClient
 from chromadb import Settings
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from datetime import datetime
+from json import dump
+from json import load
 from langchain.prompts import ChatPromptTemplate
 from langchain.prompts import PromptTemplate
 from langchain_community.chat_models.ollama import ChatOllama
@@ -158,25 +160,35 @@ def respondtoUser(llm: ChatOllama, user: str, prompt, chatId: str):
 
     return response
 
-def getChatTitle(llm: ChatOllama, user: str, AI: str):
-    message = TITLECHATPROMPT.format(user=user, AI=AI)
+def getChatTitle(llm: ChatOllama, userMessage: str, AIMessage: str):
+    message = TITLECHATPROMPT.format(user=userMessage, AI=AIMessage)
     title = llm.invoke(message).content
+
+    return title
+
+def generateUserChatTitle(llm: ChatOllama, user: str, userMessage: str, AIMessage: str, chatId: str):
+    with open(f'../users-data/{user}/info.json') as file:
+        userInfo = load(file)
+
+    titles = userInfo['titles']
+    title = getChatTitle(llm, userMessage, AIMessage)
+    titles[chatId] = title
+    userInfo['titles'] = titles
+
+    with open(f'../users-data/{user}/info.json', 'w') as file:
+        dump(userInfo, file)
 
     return title
 
 if __name__ == '__main__':
     # filterwarnings("ignore")
     ChromaClient = PersistentClient(currentDirectory(), Settings(anonymized_telemetry=False))
-    #print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Client created")}')
     log(currentLogLevel, INFO_LOG_LEVEL, 'Client created')
     sentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Embedding function created")}')
     log(currentLogLevel, INFO_LOG_LEVEL, 'Embedding function created')
     collection = ChromaClient.get_or_create_collection(name='test-collection', embedding_function=sentenceTransformer)
-    #print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Collection created")}')
     log(currentLogLevel, INFO_LOG_LEVEL, 'Collection created')
     addPDFDocument(collection, 'on_the_meaning_of_life_chpt1_coda.pdf')
-    #print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText(f"{collection.count()} Documents in the collection")}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'{collection.count()} Documents in the collection')
 
     PROMPT = 'What is the meaning of life?'
