@@ -176,7 +176,7 @@ def getChatTitle(llm: ChatOllama, userMessage: str, AIMessage: str):
     return title
 
 def generateUserChatTitle(llm: ChatOllama, user: str, chatId: str):
-    with open(f'../users-data/{user}/info.json') as file:
+    with open(f'./users-data/{user}/info.json') as file:
         userInfo = load(file)
 
     titles = userInfo['titles']
