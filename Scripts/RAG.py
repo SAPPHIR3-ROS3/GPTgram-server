@@ -152,8 +152,8 @@ def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collect
 
     return AIMessage
 
-def respondtoUser(llm: ChatOllama, user: str, prompt, chatID: str):
-    collection = getUserTextCollection(user)
+def respondtoUser(llm: ChatOllama, user: str, prompt, chatId: str):
+    collection = getUserTextCollection(user, chatId)
     response = generateRelevantResponse(llm, prompt, collection)
 
     return response
