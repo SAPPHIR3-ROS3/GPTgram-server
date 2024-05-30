@@ -342,7 +342,7 @@ def createOrGetUserVectorDatabase(user: str):
 def getUserTextCollection(user: str, chatId : str):
     UserClient = createOrGetUserVectorDatabase(user)
     SentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
-    UserCollection = UserClient.get_or_create_collection(name=chatId, embedding_function=SentenceTransformer)
+    UserCollection = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer) #TODO: need to implement a workaround of the 3-63 characters limit of chroma db
 
     return UserCollection
 
