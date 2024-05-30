@@ -10,6 +10,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.prompts import PromptTemplate
 from langchain_community.chat_models.ollama import ChatOllama
 from os import getcwd as currentDirectory
+from os import makedirs
 from warnings import filterwarnings
 
 from Scripts.utils import * 
@@ -161,7 +162,8 @@ def respondtoUser(llm: ChatOllama, user: str, prompt, chatId: str):
     return response
 
 def getFirstMessages(user: str, chatId: str):
-    with open(f'../users-data/{user}/chats/{chatId}.json') as file:
+    makedirs(f'../users-data/{user}/chats/{chatId}', exist_ok=True)
+    with open(f'../users-data/{user}/chats/{chatId}/log.json') as file:
         messages = load(file)['log']
 
     userMessage = messages[0]
