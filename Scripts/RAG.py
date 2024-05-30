@@ -160,18 +160,28 @@ def respondtoUser(llm: ChatOllama, user: str, prompt, chatId: str):
 
     return response
 
+def getFirstMessages(user: str, chatId: str):
+    with open(f'../users-data/{user}/chats/{chatId}.json') as file:
+        messages = load(file)['log']
+
+    userMessage = messages[0]
+    AIMessage = messages[1]
+
+    return {'user': userMessage, 'AI': AIMessage}
+
 def getChatTitle(llm: ChatOllama, userMessage: str, AIMessage: str):
     message = TITLECHATPROMPT.format(user=userMessage, AI=AIMessage)
     title = llm.invoke(message).content
 
     return title
 
-def generateUserChatTitle(llm: ChatOllama, user: str, userMessage: str, AIMessage: str, chatId: str):
+def generateUserChatTitle(llm: ChatOllama, user: str, chatId: str):
     with open(f'../users-data/{user}/info.json') as file:
         userInfo = load(file)
 
     titles = userInfo['titles']
-    title = getChatTitle(llm, userMessage, AIMessage)
+    firstMessages = getFirstMessages(user, chatId)
+    title = getChatTitle(llm, firstMessages['user'], firstMessages['AI'])
     titles[chatId] = title
     userInfo['titles'] = titles
 
