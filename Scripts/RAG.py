@@ -1,3 +1,8 @@
+from warnings import filterwarnings
+
+filterwarnings("ignore", category=DeprecationWarning)
+filterwarnings("ignore", category=FutureWarning)
+
 from chromadb import Client
 from chromadb import Collection
 from chromadb import PersistentClient
@@ -11,7 +16,6 @@ from langchain.prompts import PromptTemplate
 from langchain_community.chat_models.ollama import ChatOllama
 from os import getcwd as currentDirectory
 from os import makedirs
-from warnings import filterwarnings
 
 from Scripts.utils import * 
 from Scripts.VectorChromaDB import EMBEDDING_MODEL
@@ -96,6 +100,9 @@ class Response:
     
     def setResponse(self, response):
         self.response = response
+
+    def getText(self):
+        return self.response
     
 def expandQuery(llm : ChatOllama, prompt, numQueries=5):
     temperature = llm.temperature
@@ -140,15 +147,25 @@ def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collect
             results.extend(queryTextCollection(collection, query))
 
     results.extend(queryTextCollection(collection, prompt, 5))
-    log(currentLogLevel, INFO_LOG_LEVEL, 'Retrieved documents')
-    results = sorted(results, key=lambda x: x['distances'])
-    log(currentLogLevel, INFO_LOG_LEVEL, 'Documents sorted by distance')
-    results = [result for result in results if [result['ids'] for result in results].count(result['ids']) == 1]
-    log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by uniqueness')
-    results = [result for result in results if isRelevant(llm, result, prompt)]
-    log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by relevance')
+    
+    if len(results) > 0:
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Retrieved documents')
+        results = sorted(results, key=lambda x: x['distances'])
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Documents sorted by distance')
+        results = [result for result in results if [result['ids'] for result in results].count(result['ids']) == 1]
+        log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by uniqueness')
+        results = [result for result in results if isRelevant(llm, result, prompt)]
+        log(currentLogLevel, INFO_LOG_LEVEL, f'Documents filtered by relevance')
+    else:
+        log(currentLogLevel, INFO_LOG_LEVEL, 'No documents retrieved')
+    
     AIMessage = Response(results)
-    message = ANSWERPROMPT.format(context=AIMessage.getFormattedContext(), question=prompt)
+
+    if len(AIMessage.getContext()) > 0:
+        message = ANSWERPROMPT.format(context=AIMessage.getFormattedContext(), question=prompt)
+    else:
+        message = prompt
+        
     response = llm.invoke(message).content
     log(currentLogLevel, INFO_LOG_LEVEL, 'Response generated')
     AIMessage.setResponse(response)
@@ -162,8 +179,8 @@ def respondtoUser(llm: ChatOllama, user: str, prompt, chatId: str):
     return response
 
 def getFirstMessages(user: str, chatId: str):
-    makedirs(f'../users-data/{user}/chats/{chatId}', exist_ok=True)
-    with open(f'../users-data/{user}/chats/{chatId}/log.json') as file:
+    makedirs(f'./users-data/{user}/chats/{chatId}', exist_ok=True)
+    with open(f'./users-data/{user}/chats/{chatId}/log.json') as file:
         messages = load(file)['log']
 
     userMessage = messages[0]
