@@ -1,4 +1,12 @@
+from warnings import filterwarnings
+
+filterwarnings("ignore", category=DeprecationWarning)
+filterwarnings("ignore", category=FutureWarning)
+
 from datetime import datetime
+from json import dump
+from json import load
+from hashlib import sha1 as SHA1
 from hashlib import sha256 as SHA256
 from os import makedirs
 from os import remove
@@ -51,22 +59,17 @@ def createNewUser(user: str, email: str, passwordHash: str,  connector: connect)
 
         userPath = f'users-data/{user}'
         userChatsPath = f'{userPath}/chats'
-        userPDFPath = f'{userPath}/pdfs'
-        userPPTXPath = f'{userPath}/pptxs'
-        userCSVPath = f'{userPath}/csvs'
-        userImagesPath = f'{userPath}/images'
-        userAudiosPath = f'{userPath}/audios'
 
         makedirs(userPath)
         makedirs(userChatsPath)
-        makedirs(userCSVPath)
-        makedirs(userPDFPath)
-        makedirs(userPPTXPath)
-        makedirs(userImagesPath)
-        makedirs(userAudiosPath)
 
         log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} directories created')
-        
+
+        info = {'user': user, 'email': email, 'created_at': creationDate, 'id': userID, 'titles': dict()}
+
+        with open(f'{userPath}/info.json', 'w') as file:
+            dump(info, file)
+
         return True
 
     else: return False
@@ -88,6 +91,94 @@ def modifyUser(userID: str, user: str, connector: connect, email: str = None, pa
                     {'password_hash': passwordHash, 'id': userID}
                 )
                 log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} password updated')
+
+        return True
+    
+    else: return False
+
+def doesUserChatExists(user: str, chatID: str):
+    return exists(f'./users-data/{user}/chats/{chatID}')
+
+def createUserChat(user: str, chatID: str):
+    if doesUserChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat already exists', {'user': user, 'chat_id': chatID})
+        return False
+    
+    userPath = f'users-data/{user}'
+    userChatPath = f'{userPath}/chats/{chatID}'
+    userChatPDFsPath = f'{userChatPath}/pdfs'
+    userChatImagesPath = f'{userChatPath}/images'
+    userChatAudiosPath = f'{userChatPath}/audios'
+
+    makedirs(userChatPath, exist_ok=True)
+    makedirs(userChatPDFsPath, exist_ok=True)
+    makedirs(userChatImagesPath, exist_ok=True)
+    makedirs(userChatAudiosPath, exist_ok=True)
+
+    log(currentLogLevel, INFO_LOG_LEVEL, 'User chat created', {'user': user, 'chat_id': chatID})
+
+    logFile = {'log': [], 'creation_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  'chat_id': chatID, 'user': user}
+    with open(f'{userChatPath}/log.json', 'w') as file:
+        dump(logFile, file)
+
+    return True
+
+def hasChatTitle(user: str, chatID: str):
+    if not doesUserChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat does not exists', {'user': user, 'chat_id': chatID})
+        return False
+
+    userInfoPath = f'./users-data/{user}/info.json'
+    with open(userInfoPath, 'r') as file:
+        info = load(file)
+
+    return chatID in info['titles']
+
+    
+
+def saveChatTitle(user: str, chatID: str, title: str):
+    if not doesUserChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat does not exists', {'user': user, 'chat_id': chatID})
+        return False
+
+    if hasChatTitle(user, chatID):
+        return False
+
+    userInfoPath = f'./users-data/{user}/info.json'
+    with open(userInfoPath, 'r') as file:
+        info = load(file)
+        info['titles'][chatID] = title 
+
+    with open(userInfoPath, 'w') as file:
+        dump(info, file)
+    
+    log(currentLogLevel, INFO_LOG_LEVEL, 'Chat title saved', {'user': user, 'chat_id': chatID, 'title': title})
+
+    return True
+
+def addChatTextMessage(user: str, chatID: str, message: str, sender: str):
+    if not doesUserChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat does not exists', {'user': user, 'chat_id': chatID})
+        return False
+    
+    userChatPath = f'./users-data/{user}/chats/{chatID}'
+    with open(f'{userChatPath}/log.json', 'r') as file:
+        logFile = load(file)
+
+    messageItem = {'message': message, 'sender': sender, 'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'type': 'text', }
+    logFile['log'].append(messageItem)
+
+    with open(f'{userChatPath}/log.json', 'w') as file:
+        dump(logFile, file)
+    
+    log(currentLogLevel, INFO_LOG_LEVEL, 'Text message added', {'user': user, 'chat_id': chatID, 'message': message, 'sender': sender})
+
+    return True
+
+def deleteUserChat(user: str, chatID: str):
+    if exists(f'users-data/{user}/chats/{chatID}'):
+        rmtree(f'users-data/{user}/chats/{chatID}')
+        log(currentLogLevel, INFO_LOG_LEVEL, 'User chat deleted', {'user': user, 'chat_id': chatID})
 
         return True
     
