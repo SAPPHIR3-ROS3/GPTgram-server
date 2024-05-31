@@ -1,5 +1,15 @@
+from warnings import filterwarnings
+
+filterwarnings("ignore", category=DeprecationWarning)
+filterwarnings("ignore", category=FutureWarning)
+
 from datetime import datetime
+from inspect import currentframe
+from json import dump
 from json import load
+from os import makedirs
+from os.path import abspath
+from os.path import basename
 
 ERROR_LOG_LEVEL = 0
 INFO_LOG_LEVEL = 1
@@ -43,14 +53,20 @@ def log(currentLogLevel, level, message, parameters: dict = None):
     date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     color = logColor[level]
     type = color(logLevel[level])
+    caller = currentframe().f_back.f_code.co_name
+    caller = caller if caller != '<module>' else 'main'
+    caller = color(caller)
+    file = basename(abspath(currentframe().f_back.f_code.co_filename))
+
+    file = color(file)
     message = color(message)
     parameters = f'| {grayText(str(parameters))}' if parameters else None 
 
-    logMessage = f'[{date}][{type}] {message} {parameters if parameters else ""}'
+    logMessage = f'[{date}][{type}][{file}][{caller}] {message} {parameters if parameters else ""}'
 
     print(logMessage)
 
 def retrieveTitles(user: str):
-    with open(f'../users-data/{user}/info.json') as file:
+    with open(f'./users-data/{user}/info.json') as file:
         data = load(file)
         return data['titles']
