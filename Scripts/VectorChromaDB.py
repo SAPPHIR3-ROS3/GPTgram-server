@@ -1,3 +1,8 @@
+from warnings import filterwarnings
+
+filterwarnings("ignore", category=DeprecationWarning)
+filterwarnings("ignore", category=FutureWarning)
+
 from chromadb import Client
 from chromadb import Collection
 from chromadb import PersistentClient
@@ -7,6 +12,7 @@ from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from datetime import datetime
 from easyocr import Reader
+from hashlib import sha1 as SHA1
 from hashlib import sha256 as SHA256
 from io import BytesIO
 from langchain_community.document_loaders import UnstructuredPDFLoader
@@ -342,7 +348,7 @@ def createOrGetUserVectorDatabase(user: str):
 def getUserTextCollection(user: str, chatId : str):
     UserClient = createOrGetUserVectorDatabase(user)
     SentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
-    UserCollection = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer) #TODO: need to implement a workaround of the 3-63 characters limit of chroma db
+    UserCollection = UserClient.get_or_create_collection(name=chatId, embedding_function=SentenceTransformer) #TODO: need to implement a workaround of the 3-63 characters limit of chroma db
 
     return UserCollection
 
