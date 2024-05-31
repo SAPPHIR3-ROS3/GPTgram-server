@@ -17,6 +17,7 @@ from shutil import rmtree
 from sqlite3 import connect
 
 from Scripts.utils import *
+from Scripts.VectorChromaDB import addTextDocumentToUserCollection
 
 DBPATH = 'database.db'
 USERSDATAPATH = 'users-data'
@@ -134,8 +135,6 @@ def hasChatTitle(user: str, chatID: str):
 
     return chatID in info['titles']
 
-    
-
 def saveChatTitle(user: str, chatID: str, title: str):
     if not doesUserChatExists(user, chatID):
         log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat does not exists', {'user': user, 'chat_id': chatID})
@@ -172,6 +171,8 @@ def addChatTextMessage(user: str, chatID: str, message: str, sender: str):
         dump(logFile, file)
     
     log(currentLogLevel, INFO_LOG_LEVEL, 'Text message added', {'user': user, 'chat_id': chatID, 'message': message, 'sender': sender})
+
+    addTextDocumentToUserCollection(user, chatID, message, sender)
 
     return True
 

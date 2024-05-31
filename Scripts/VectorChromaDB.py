@@ -352,7 +352,19 @@ def getUserTextCollection(user: str, chatId : str):
 
     return UserCollection
 
-def addTextDocumentToUserCollection(user: str, document: str, metadata: dict, AI: str = '', AIDocument: str = '', AIMetadata: dict = None):
+def addTextDocumentToUserCollection(user: str, chatID: str, document: str, sender: str, metadata: dict = None):
+    if not metadata:
+        metadata = dict()
+        metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        metadata['mode'] = 'text' if sender == user else 'AI'
+        metadata['author'] = sender
+        log(currentLogLevel, INFO_LOG_LEVEL, 'text document metadata created', {'metadata': metadata})
+
+    userCollection = getUserTextCollection(user, chatID)
+    addTextDocument(userCollection, document, metadata)
+    log(currentLogLevel, INFO_LOG_LEVEL, 'text document added', {'document': document})
+
+def addTextDocumentToUserCollectionOLD(user: str, document: str, metadata: dict, chatID, AI: str = '', AIDocument: str = '', AIMetadata: dict = None):
     if not metadata:
         metadata = dict()
         metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -360,9 +372,8 @@ def addTextDocumentToUserCollection(user: str, document: str, metadata: dict, AI
         metadata['author'] = user
         log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} metadata created')
 
-    UserClient = createOrGetUserVectorDatabase(user)
     log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} database loaded')
-    UserColletion = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer)
+    UserColletion = getUserTextCollection(user, chatID)
     log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} collection loaded')
     addTextDocument(UserColletion, document, metadata)
     log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} document added')

@@ -8,6 +8,7 @@ from langchain_community.chat_models.ollama import ChatOllama
 import websockets
 from json import dumps
 from json import loads
+from json.decoder import JSONDecodeError
 from time import sleep
 from Scripts.manage import *
 from Scripts.RAG import respondtoUser
@@ -116,7 +117,7 @@ async def handle_title(websocket, data):
 
     log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': title, 'user': username}) 
     saveChatTitle(username, chatID, title)
-    log(currentLogLevel, INFO_LOG_LEVEL, "Chat title saved", {'chatID': chatID, 'title': title, 'user': username})
+    log(currentLogLevel, INFO_LOG_LEVEL, "Chat title saved", {'chatID': chatID, 'title': title, 'user': username}) 
     
     await websocket.send(dumps(message))
 
@@ -136,7 +137,7 @@ async def handler(websocket, path):
                     await handle_title(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
-            except json.JSONDecodeError as e:
+            except JSONDecodeError as e:
                 log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': e})
 
 
