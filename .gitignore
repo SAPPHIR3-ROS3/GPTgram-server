@@ -12,3 +12,5 @@ __pycache__
 *.zip
 *.sqlite3
 *.wav
+*.json
+*.db
