@@ -68,7 +68,7 @@ async def handle_register(websocket, data):
     userID = getUserID(username, email)
     if (doesExists(userID, connector )):
         log(currentLogLevel, ERROR_LOG_LEVEL, "User already exists", {'email': email})
-        await websocket.send(json.dumps({ 'status': 'error', 'message': 'User already exists' }))
+        await websocket.send(dumps({ 'status': 'error', 'message': 'User already exists' }))
         return
     
     createNewUser(username, email, password, connector)
@@ -86,7 +86,7 @@ async def handle_login(websocket, data):
     log(currentLogLevel, INFO_LOG_LEVEL, "Handling login for", {'email': email})
     if (not doesExists(getUserID(user, email), connector)):
         log(currentLogLevel, ERROR_LOG_LEVEL, "User does not exist", {'email': email})
-        await websocket.send(json.dumps({ 'status': 'error', 'message': 'User does not exist' }))
+        await websocket.send(dumps({ 'status': 'error', 'message': 'User does not exist' }))
 
         return
     
@@ -95,12 +95,12 @@ async def handle_login(websocket, data):
         password = passwordList[i]
         if (login(email, password, connector)):
             log(currentLogLevel, INFO_LOG_LEVEL, "Login successful", {'email': email})
-            await websocket.send(json.dumps({ 'status': 'success', 'message': 'Login successful' }))
+            await websocket.send(dumps({ 'status': 'success', 'message': 'Login successful' }))
             #TODO reindirizza ora il client alla chat 
             return
         
     log(currentLogLevel, ERROR_LOG_LEVEL, "Wrong password", {'email': email})
-    await websocket.send(json.dumps({ 'status': 'error', 'message': 'Wrong password' }))
+    await websocket.send(dumps({ 'status': 'error', 'message': 'Wrong password' }))
 
     return
 
