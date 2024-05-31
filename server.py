@@ -1,15 +1,25 @@
+from warnings import filterwarnings
+
+filterwarnings("ignore", category=DeprecationWarning)
+filterwarnings("ignore", category=FutureWarning)
+
 import asyncio
 from langchain_community.chat_models.ollama import ChatOllama
 import websockets
-import json
+from json import dumps
+from json import loads
 from time import sleep
 from Scripts.manage import *
 from Scripts.RAG import respondtoUser
 from Scripts.VectorChromaDB import addTextDocumentToUserCollection
+from Scripts.RAG import generateUserChatTitle
+from Scripts.utils import retrieveTitles
+from langchain_community.chat_models.ollama import ChatOllama
 
-TYPE_REGISTER_MESSAGE = "register"  # Tipo di messaggio per la registrazione
-TYPE_LOGIN_MESSAGE = "login"        # Tipo di messaggio per il login
-TYPE_CHAT_MESSAGE = "chat";     # Tipo di messaggio per la chat
+TYPE_REGISTER_MESSAGE = "register"           # Tipo di messaggio per la registrazione
+TYPE_LOGIN_MESSAGE = "login"                 # Tipo di messaggio per il login
+TYPE_CHAT_MESSAGE = "chat";                  # Tipo di messaggio per la chat
+TYPE_CHAT_TITLE_MESSAGE = "chatTitle";       # Tipo di messaggio per il titolo della chat
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
@@ -22,17 +32,26 @@ async def handle_message(websocket, data):
     # email = data['email']
     chatID = data['chatId']
     message = data['message']
+
+    log(currentLogLevel, INFO_LOG_LEVEL, "user message", {'user' : username, 'chatID': chatID, 'message': message})
     
     response = respondtoUser(llm, username, message, chatID)
 
+    if chatID not in retrieveTitles(username):
+        createUserChat(username, chatID)
+
+
     echo_message = {
         'typeMessage': TYPE_CHAT_MESSAGE,
-        'message': str(response),
+        'message': response.getText(),
     }
-    # Invia il messaggio di echo al client
-    # sleep(2) # TODO: Rimuovere questa riga
-    log(currentLogLevel, INFO_LOG_LEVEL, "Echoing message", {'message': data['message']})
-    await websocket.send(json.dumps(echo_message))
+
+    #addTextDocumentToUserCollection(username, message, chatID, 'AI', response)
+    addChatTextMessage(username, chatID, message, 'User')
+    addChatTextMessage(username, chatID, response.getText(), 'AI')
+
+    log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': response.getText(), 'user': username})
+    await websocket.send(dumps(echo_message))
     
 
 #registrazione clients
@@ -51,12 +70,11 @@ async def handle_register(websocket, data):
         await websocket.send(json.dumps({ 'status': 'error', 'message': 'User already exists' }))
         return
     
-    log(currentLogLevel, DEBUG_LOG_LEVEL, "Creating new user", {'email': email, 'username': username, 'password': password})
     createNewUser(username, email, password, connector)
 
     # Invia il messaggio di successo al client
     log(currentLogLevel, INFO_LOG_LEVEL, "Registration successful", {'email': email})
-    await websocket.send(json.dumps({'status': 'success', 'message': 'Registration successful'}))
+    await websocket.send(dumps({'status': 'success', 'message': 'Registration successful'}))
 
 
 # Gestione del login
@@ -85,24 +103,49 @@ async def handle_login(websocket, data):
 
     return
 
+async def handle_title(websocket, data):
+
+    llm = ChatOllama(model=MODEL)
+    username = data['user']
+    chatID = data['chatId']
+    title = generateUserChatTitle(llm, username, chatID)
+    message = {
+        'typeMessage': TYPE_CHAT_TITLE_MESSAGE,
+        'title': title
+    }
+
+    log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': title, 'user': username}) 
+    saveChatTitle(username, chatID, title)
+    log(currentLogLevel, INFO_LOG_LEVEL, "Chat title saved", {'chatID': chatID, 'title': title, 'user': username})
+    
+    await websocket.send(dumps(message))
+
 # Funzione per gestire i messaggi
 async def handler(websocket, path):
     async for message in websocket:
         if message:
             try:
-                data = json.loads(message)
+                data = loads(message)
                 if data['typeMessage'] == TYPE_REGISTER_MESSAGE:
                     await handle_register(websocket,data)
                 elif data['typeMessage'] == TYPE_LOGIN_MESSAGE:
                     await handle_login(websocket, data)
                 elif data['typeMessage'] == TYPE_CHAT_MESSAGE:
                     await handle_message(websocket, data)
+                elif data['typeMessage'] == TYPE_CHAT_TITLE_MESSAGE:
+                    await handle_title(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
-            except json.JSONDecodeError:
-                log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': message})
+            except json.JSONDecodeError as e:
+                log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': e})
 
-start_server = websockets.serve(handler, "localhost", 8765)
 
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+if __name__ == "__main__":
+    filterwarnings("ignore", category=DeprecationWarning)
+    filterwarnings("ignore", category=FutureWarning)
+    log(currentLogLevel, INFO_LOG_LEVEL, "Starting server")
+    start_server = websockets.serve(handler, "localhost", 8765)
+    log(currentLogLevel, INFO_LOG_LEVEL, "Server started")
+    asyncio.get_event_loop().run_until_complete(start_server)
+    log(currentLogLevel, INFO_LOG_LEVEL, "event loop started")
+    asyncio.get_event_loop().run_forever()
