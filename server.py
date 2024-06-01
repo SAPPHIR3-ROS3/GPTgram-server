@@ -23,6 +23,7 @@ TYPE_CHAT_TITLE_MESSAGE = "chatTitle";       # Tipo di messaggio per il titolo d
 TYPE_MESSAGE_COOKIE = "cookie"               # Tipo di messaggio per i cookie
 TYPE_MESSAGE_NEW_COOKIE = "newCookie"        # Tipo di messaggio per i nuovi cookie
 TYPE_LOGOUT_MESSAGE = "logout"               # Tipo di messaggio per il logout
+TYPE_REQUEST_CHAT_LIST = "chatList"          # Tipo di messaggio per la lista delle chat
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
@@ -166,6 +167,16 @@ async def handle_title(websocket, data):
     
     await websocket.send(dumps(message))
 
+async def handle_chat_list(websocket, data):
+    username = data['user']
+    titles = retrieveTitlesList(username)
+    message = {
+        'typeMessage': TYPE_REQUEST_CHAT_LIST,
+        'titles': titles
+    }
+
+    await websocket.send(dumps(message))
+
 # Funzione per gestire i messaggi 
 async def handler(websocket, path):
     async for message in websocket:
@@ -186,6 +197,8 @@ async def handler(websocket, path):
                     await new_login_cookie(websocket, data)
                 elif data['typeMessage'] == TYPE_LOGOUT_MESSAGE:
                     await logout_handler(websocket, data)
+                elif data['typeMessage'] == TYPE_REQUEST_CHAT_LIST:
+                    await handle_chat_list(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
             except JSONDecodeError as e:
