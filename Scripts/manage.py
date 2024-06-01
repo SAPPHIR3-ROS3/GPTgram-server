@@ -34,9 +34,20 @@ def getUsername(email: str, connector: connect):
     with connector:
         cursor = connector.cursor()
         cursor.execute("SELECT name FROM users WHERE email = :email", {'email': email})
-        user = cursor.fetchone()[0]
+        user = cursor.fetchone()
+
+        if user is not None:
+            return user[0]
 
         return user
+
+def getUserEmail(username: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT email FROM users WHERE name = :name", {'name': username})
+        email = cursor.fetchone()[0]
+
+        return email
 
 def doesExists(userID: str, connector: connect):
     with connector:
@@ -235,7 +246,7 @@ def loadDatabase():
         with connect(DBPATH) as connector:
             cursor = connector.cursor()
             cursor.execute('''
-                CREATE TABLE users (
+                CREATE TABLE IF NOT EXISTS users (
                     id TEXT NOT NULL PRIMARY KEY, 
                     name TEXT NOT NULL UNIQUE, 
                     email TEXT NOT NULL UNIQUE, 
@@ -244,7 +255,16 @@ def loadDatabase():
                     )
                 ''')
             connector.commit()
-            log(currentLogLevel, INFO_LOG_LEVEL, 'Database created')
+            log(currentLogLevel, INFO_LOG_LEVEL, 'users table created')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS cookies (
+                    id TEXT NOT NULL PRIMARY KEY, 
+                    user TEXT NOT NULL, 
+                    expire TEXT NOT NULL
+                    )
+                ''')
+            connector.commit()
+            log(currentLogLevel, INFO_LOG_LEVEL, 'cookies table created')
 
     if not exists(USERSDATAPATH):
         makedirs(USERSDATAPATH)
@@ -255,6 +275,56 @@ def loadDatabase():
     connector = connect(DBPATH)
 
     return connector
+
+def insertNewCookie(hash: str, user: str, expire: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("INSERT INTO cookies (id, user, expire) VALUES (:id, :user, :expire)", 
+            {'id': hash, 'user': user, 'expire': expire}
+        )
+        connector.commit()
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Cookie inserted')
+
+def checkUserCookie(hash: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT * FROM cookies WHERE id = :id", {'id': hash})
+        cookie = cursor.fetchone()
+
+        return cookie is not None
+
+def getUserMailFromCookie(hash: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT user FROM cookies WHERE id = :id", {'id': hash})
+        user = cursor.fetchone()[0]
+
+
+        return getUserEmail(user, connector)
+
+def deleteCookie(hash: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("DELETE FROM cookies WHERE id = :id", {'id': hash})
+        connector.commit()
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Cookie deleted')
+
+def checkCookies(connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT * FROM cookies")
+        cookies = cursor.fetchall()
+
+        expiredCookies = []
+        for cookie in cookies:
+            if datetime.now() > datetime.strptime(cookie[2], '%d/%m/%Y, %H:%M:%S'):
+                expiredCookies.append(cookie[0])
+        
+        for cookie in expiredCookies:
+            cursor.execute("DELETE FROM cookies WHERE id = :id", {'id': cookie})
+            connector.commit()
+
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Outdated cookies deleted')
 
 def createUsersData():
     if not exists(USERSDATAPATH):

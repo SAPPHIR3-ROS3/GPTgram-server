@@ -21,6 +21,8 @@ TYPE_REGISTER_MESSAGE = "register"           # Tipo di messaggio per la registra
 TYPE_LOGIN_MESSAGE = "login"                 # Tipo di messaggio per il login
 TYPE_CHAT_MESSAGE = "chat";                  # Tipo di messaggio per la chat
 TYPE_CHAT_TITLE_MESSAGE = "chatTitle";       # Tipo di messaggio per il titolo della chat
+TYPE_MESSAGE_COOKIE = "cookie"               # Tipo di messaggio per i cookie
+TYPE_MESSAGE_NEW_COOKIE = "newCookie"        # Tipo di messaggio per i nuovi cookie
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
@@ -75,7 +77,7 @@ async def handle_register(websocket, data):
 
     # Invia il messaggio di successo al client
     log(currentLogLevel, INFO_LOG_LEVEL, "Registration successful", {'email': email})
-    await websocket.send(dumps({'status': 'success', 'message': 'Registration successful'}))
+    await websocket.send(dumps({'status': 'RegisterSuccess', 'message': 'Registration successful'}))
 
 
 # Gestione del login
@@ -95,7 +97,7 @@ async def handle_login(websocket, data):
         password = passwordList[i]
         if (login(email, password, connector)):
             log(currentLogLevel, INFO_LOG_LEVEL, "Login successful", {'email': email})
-            await websocket.send(dumps({ 'status': 'success', 'message': 'Login successful' }))
+            await websocket.send(dumps({ 'status': 'success', 'message': 'Login successful', 'user': user, 'email': email}))
             #TODO reindirizza ora il client alla chat 
             return
         
@@ -103,6 +105,38 @@ async def handle_login(websocket, data):
     await websocket.send(dumps({ 'status': 'error', 'message': 'Wrong password' }))
 
     return
+
+# Funzione per gestire i cookie
+async def new_login_cookie(websocket, data):
+    log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling new login cookie", {'data': data})
+    hash = data['hash']
+    username = data['username']
+    expire = data['expire']
+    connector = loadDatabase()
+    
+    if checkUserCookie(hash, connector):
+        log(currentLogLevel, INFO_LOG_LEVEL, "Cookie already exists")
+        return
+    
+    insertNewCookie(hash, username, expire, connector)
+    checkCookies(connector)
+    log(currentLogLevel, INFO_LOG_LEVEL, "Cookie table updated")
+    email = getUserMailFromCookie(hash, connector)
+
+    await websocket.send(dumps({ 'status': 'NewCookieSuccess', 'message': 'Cookie valid', 'email': email}))
+
+async def login_by_cookie(websocket, data):
+    log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling login by cookie", {'data': data})
+    hash = data['hash']
+    connector = loadDatabase()
+    if checkUserCookie(hash, connector):
+        log(currentLogLevel, INFO_LOG_LEVEL, "login by cookie successful")
+        email = getUserMailFromCookie(hash, connector)
+        await websocket.send(dumps({ 'status': 'CookieSuccess', 'message': 'Cookie valid', 'email': email}))
+        return
+    
+    log(currentLogLevel, ERROR_LOG_LEVEL, "login by cookie failed")
+    await websocket.send(dumps({ 'status': 'error', 'message': 'Cookie invalid'}))
 
 async def handle_title(websocket, data):
 
@@ -121,7 +155,7 @@ async def handle_title(websocket, data):
     
     await websocket.send(dumps(message))
 
-# Funzione per gestire i messaggi
+# Funzione per gestire i messaggi 
 async def handler(websocket, path):
     async for message in websocket:
         if message:
@@ -135,6 +169,10 @@ async def handler(websocket, path):
                     await handle_message(websocket, data)
                 elif data['typeMessage'] == TYPE_CHAT_TITLE_MESSAGE:
                     await handle_title(websocket, data)
+                elif data['typeMessage'] == TYPE_MESSAGE_COOKIE:
+                    await login_by_cookie(websocket, data)
+                elif data['typeMessage'] == TYPE_MESSAGE_NEW_COOKIE:
+                    await new_login_cookie(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
             except JSONDecodeError as e:
@@ -144,6 +182,11 @@ async def handler(websocket, path):
 if __name__ == "__main__":
     filterwarnings("ignore", category=DeprecationWarning)
     filterwarnings("ignore", category=FutureWarning)
+    connector = loadDatabase()
+    deleteAllData(connector, True)
+    connector = loadDatabase()
+    setupData()
+    checkCookies(connector)
     log(currentLogLevel, INFO_LOG_LEVEL, "Starting server")
     start_server = websockets.serve(handler, "localhost", 8765)
     log(currentLogLevel, INFO_LOG_LEVEL, "Server started")
