@@ -70,3 +70,30 @@ def retrieveTitles(user: str):
     with open(f'./users-data/{user}/info.json') as file:
         data = load(file)
         return data['titles']
+    
+def retrieveTitlesList(user: str):
+    with open(f'./users-data/{user}/info.json') as file:
+        data = load(file)['titles']
+
+        titlesList = []
+
+        for hash, title in data.items():
+            with open(f'./users-data/{user}/chats/{hash}/log.json') as file:
+                creationDate = load(file)['creation_date']
+                creationDate = datetime.strptime(creationDate, '%Y-%m-%d %H:%M:%S')
+                creationDate = {
+                    'year': creationDate.year, 
+                    'month': creationDate.month, 
+                    'day': creationDate.day, 
+                    'hour': creationDate.hour, 
+                    'minute': creationDate.minute,
+                    'second': creationDate.second
+                }
+
+            titlesList.append({
+                'hash': hash,
+                'title': title,
+                'creation_date': creationDate
+            })
+
+        return titlesList
