@@ -12,7 +12,6 @@ from json.decoder import JSONDecodeError
 from time import sleep
 from Scripts.manage import *
 from Scripts.RAG import respondtoUser
-from Scripts.VectorChromaDB import addTextDocumentToUserCollection
 from Scripts.RAG import generateUserChatTitle
 from Scripts.utils import retrieveTitles
 from langchain_community.chat_models.ollama import ChatOllama
@@ -23,6 +22,7 @@ TYPE_CHAT_MESSAGE = "chat";                  # Tipo di messaggio per la chat
 TYPE_CHAT_TITLE_MESSAGE = "chatTitle";       # Tipo di messaggio per il titolo della chat
 TYPE_MESSAGE_COOKIE = "cookie"               # Tipo di messaggio per i cookie
 TYPE_MESSAGE_NEW_COOKIE = "newCookie"        # Tipo di messaggio per i nuovi cookie
+TYPE_LOGOUT_MESSAGE = "logout"               # Tipo di messaggio per il logout
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
@@ -56,7 +56,6 @@ async def handle_message(websocket, data):
     log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': response.getText(), 'user': username})
     await websocket.send(dumps(echo_message))
     
-
 #registrazione clients
 async def handle_register(websocket, data):
     # RACCOLTA DATI
@@ -78,7 +77,6 @@ async def handle_register(websocket, data):
     # Invia il messaggio di successo al client
     log(currentLogLevel, INFO_LOG_LEVEL, "Registration successful", {'email': email})
     await websocket.send(dumps({'status': 'RegisterSuccess', 'message': 'Registration successful'}))
-
 
 # Gestione del login
 async def handle_login(websocket, data): 
@@ -106,9 +104,22 @@ async def handle_login(websocket, data):
 
     return
 
+# Funzione per gestire il logout
+async def logout_handler(websocket, data):
+    log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling logout", {'data': data})
+    hash = data['hash']
+    connector = loadDatabase()
+    if checkUserCookie(hash, connector):
+        log(currentLogLevel, INFO_LOG_LEVEL, "Logout successful")
+        deleteCookie(hash, connector)
+        await websocket.send(dumps({ 'status': 'logout', 'message': 'Logout successful', 'hash': hash, 'email': getUserMailFromCookie(hash, connector)}))
+        return
+    
+    log(currentLogLevel, ERROR_LOG_LEVEL, "Logout failed")
+    await websocket.send(dumps({ 'status': 'error', 'message': 'Logout failed'}))
+
 # Funzione per gestire i cookie
 async def new_login_cookie(websocket, data):
-    log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling new login cookie", {'data': data})
     hash = data['hash']
     username = data['username']
     expire = data['expire']
@@ -173,6 +184,8 @@ async def handler(websocket, path):
                     await login_by_cookie(websocket, data)
                 elif data['typeMessage'] == TYPE_MESSAGE_NEW_COOKIE:
                     await new_login_cookie(websocket, data)
+                elif data['typeMessage'] == TYPE_LOGOUT_MESSAGE:
+                    await logout_handler(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
             except JSONDecodeError as e:
@@ -183,7 +196,7 @@ if __name__ == "__main__":
     filterwarnings("ignore", category=DeprecationWarning)
     filterwarnings("ignore", category=FutureWarning)
     connector = loadDatabase()
-    deleteAllData(connector, True)
+    deleteAllData(connector)
     connector = loadDatabase()
     setupData()
     checkCookies(connector)
