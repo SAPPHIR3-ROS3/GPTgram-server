@@ -8,7 +8,6 @@ from chromadb import Collection
 from chromadb import PersistentClient
 from chromadb import Settings
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-from datetime import datetime
 from json import dump
 from json import load
 from langchain.prompts import ChatPromptTemplate
