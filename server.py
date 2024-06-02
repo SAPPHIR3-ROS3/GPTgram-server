@@ -13,6 +13,7 @@ from time import sleep
 from Scripts.manage import *
 from Scripts.RAG import respondtoUser
 from Scripts.RAG import generateUserChatTitle
+from Scripts.utils import formatMessage
 from Scripts.utils import retrieveTitles
 from langchain_community.chat_models.ollama import ChatOllama
 
@@ -24,6 +25,7 @@ TYPE_MESSAGE_COOKIE = "cookie"               # Tipo di messaggio per i cookie
 TYPE_MESSAGE_NEW_COOKIE = "newCookie"        # Tipo di messaggio per i nuovi cookie
 TYPE_LOGOUT_MESSAGE = "logout"               # Tipo di messaggio per il logout
 TYPE_REQUEST_CHAT_LIST = "chatList"          # Tipo di messaggio per la lista delle chat
+TYPE_REQUEST_CHAT = "chatContent"                   # Tipo di messaggio per la chat
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
@@ -35,11 +37,12 @@ async def handle_message(websocket, data):
     username = data['user']
     # email = data['email']
     chatID = data['chatId']
-    message = data['message']
+    message = formatMessage(data['message'])
 
     log(currentLogLevel, INFO_LOG_LEVEL, "user message", {'user' : username, 'chatID': chatID, 'message': message})
     
     response = respondtoUser(llm, username, message, chatID)
+    response = formatMessage(response)
 
     if chatID not in retrieveTitles(username):
         createUserChat(username, chatID)
@@ -175,6 +178,22 @@ async def handle_chat_list(websocket, data):
         'titles': titles
     }
 
+    #log(currentLogLevel, DEBUG_LOG_LEVEL, "chat list request", {'titles': titles})
+
+    await websocket.send(dumps(message))
+
+async def handle_chat_request(websocket, data):
+    username = data['user']
+    chatID = data['chatId']
+    messages = getChatMessages(username, chatID)
+    message = {
+        'typeMessage': TYPE_REQUEST_CHAT,
+        'messages': messages,
+        'chatID': chatID,
+    }
+
+    # log(currentLogLevel, DEBUG_LOG_LEVEL, "chat request", {'date': date, 'type': type(date)})
+
     await websocket.send(dumps(message))
 
 # Funzione per gestire i messaggi 
@@ -199,12 +218,14 @@ async def handler(websocket, path):
                     await logout_handler(websocket, data)
                 elif data['typeMessage'] == TYPE_REQUEST_CHAT_LIST:
                     await handle_chat_list(websocket, data)
+                elif data['typeMessage'] == TYPE_REQUEST_CHAT:
+                    await handle_chat_request(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
             except JSONDecodeError as e:
                 log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': e})
 
-
+#TODO: adesso la chat viene ricreata dobiamo procedare da qui: gestire messagi audio e possibilmente file in generale e fixare gli audio per farli responsivi
 if __name__ == "__main__":
     filterwarnings("ignore", category=DeprecationWarning)
     filterwarnings("ignore", category=FutureWarning)
