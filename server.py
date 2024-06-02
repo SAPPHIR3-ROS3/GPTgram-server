@@ -42,7 +42,7 @@ async def handle_message(websocket, data):
     log(currentLogLevel, INFO_LOG_LEVEL, "user message", {'user' : username, 'chatID': chatID, 'message': message})
     
     response = respondtoUser(llm, username, message, chatID)
-    response = formatMessage(response)
+    responseText = formatMessage(str(response))
 
     if chatID not in retrieveTitles(username):
         createUserChat(username, chatID)
@@ -50,14 +50,14 @@ async def handle_message(websocket, data):
 
     echo_message = {
         'typeMessage': TYPE_CHAT_MESSAGE,
-        'message': response.getText(),
+        'message': responseText,
     }
 
     #addTextDocumentToUserCollection(username, message, chatID, 'AI', response)
     addChatTextMessage(username, chatID, message, 'User')
-    addChatTextMessage(username, chatID, response.getText(), 'AI')
+    addChatTextMessage(username, chatID, responseText, 'AI')
 
-    log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': response.getText(), 'user': username})
+    log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': responseText, 'user': username})
     await websocket.send(dumps(echo_message))
     
 #registrazione clients
@@ -192,7 +192,7 @@ async def handle_chat_request(websocket, data):
         'chatID': chatID,
     }
 
-    # log(currentLogLevel, DEBUG_LOG_LEVEL, "chat request", {'date': date, 'type': type(date)})
+    log(currentLogLevel, INFO_LOG_LEVEL, "chat request", {'chatID': chatID, 'user': username})
 
     await websocket.send(dumps(message))
 
