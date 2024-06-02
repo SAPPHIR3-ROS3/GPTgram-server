@@ -4,6 +4,7 @@ filterwarnings("ignore", category=DeprecationWarning)
 filterwarnings("ignore", category=FutureWarning)
 
 from datetime import datetime
+from dateutil.parser import parse
 from json import dump
 from json import load
 from hashlib import sha1 as SHA1
@@ -18,6 +19,7 @@ from sqlite3 import connect
 
 from Scripts.utils import *
 from Scripts.VectorChromaDB import addTextDocumentToUserCollection
+from Scripts.VectorChromaDB import getID
 
 DBPATH = 'database.db'
 USERSDATAPATH = 'users-data'
@@ -49,6 +51,17 @@ def getUserEmail(username: str, connector: connect):
 
         return email
 
+def getMetadata(document: str, sender : str, data = None, uri : str = None):
+    metadata = dict()
+    metadata['date'] = datetime.now().isoformat()
+    metadata['author'] = sender
+    metadata['uri'] = uri
+    if uri is not None:
+        metadata['type'] = uri.split('.')[-1]
+    metadata['data'] = data
+
+    return metadata
+
 def doesExists(userID: str, connector: connect):
     with connector:
         cursor = connector.cursor()
@@ -61,7 +74,7 @@ def createNewUser(user: str, email: str, passwordHash: str,  connector: connect)
     if not doesExists(getUserID(user, email), connector):
         with connector:
             cursor = connector.cursor()
-            creationDate = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            creationDate = datetime.now().isoformat()
             userID = getUserID(user, email)
             cursor.execute("INSERT INTO users (id, name, email, password_hash, created_at) VALUES (:id, :name, :email, :password_hash, :created_at)", 
                 {'id': userID, 'name': user, 'email': email, 'password_hash': passwordHash, 'created_at': creationDate}
@@ -129,7 +142,7 @@ def createUserChat(user: str, chatID: str):
 
     log(currentLogLevel, INFO_LOG_LEVEL, 'User chat created', {'user': user, 'chat_id': chatID})
 
-    logFile = {'log': [], 'creation_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  'chat_id': chatID, 'user': user}
+    logFile = {'log': [], 'creation_date': datetime.now().isoformat(),  'chat_id': chatID, 'user': user}
     with open(f'{userChatPath}/log.json', 'w') as file:
         dump(logFile, file)
 
@@ -175,7 +188,8 @@ def addChatTextMessage(user: str, chatID: str, message: str, sender: str):
     with open(f'{userChatPath}/log.json', 'r') as file:
         logFile = load(file)
 
-    messageItem = {'message': message, 'sender': sender, 'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'type': 'text', }
+    metadata = getMetadata(message, sender)
+    messageItem = {'message': message, 'sender': sender, 'date': datetime.now().isoformat(), 'type': 'text', 'location': '', 'id': getID(message, metadata)}
     logFile['log'].append(messageItem)
 
     with open(f'{userChatPath}/log.json', 'w') as file:
@@ -317,7 +331,7 @@ def checkCookies(connector: connect):
 
         expiredCookies = []
         for cookie in cookies:
-            if datetime.now() > datetime.strptime(cookie[2], '%d/%m/%Y, %H:%M:%S'):
+            if datetime.now() > parse(cookie[2]):
                 expiredCookies.append(cookie[0])
         
         for cookie in expiredCookies:
@@ -326,6 +340,26 @@ def checkCookies(connector: connect):
 
         log(currentLogLevel, INFO_LOG_LEVEL, 'Outdated cookies deleted')
 
+def doesChatExists(user: str, chatID: str):
+    return exists(f'./users-data/{user}/chats/{chatID}')
+
+def getChatMessages(user: str, chatID: str):
+    if not doesUserChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat does not exists', {'user': user, 'chat_id': chatID})
+
+        return False
+
+    if not doesChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'Chat does not exists', {'user': user, 'chat_id': chatID})
+
+        return False
+    
+    with open(f'./users-data/{user}/chats/{chatID}/log.json', 'r') as file:
+        chatLog = load(file)['log']
+        log(currentLogLevel, INFO_LOG_LEVEL, 'Chat messages retrieved', {'user': user, 'chat_id': chatID})
+
+        return chatLog
+    
 def createUsersData():
     if not exists(USERSDATAPATH):
         makedirs(USERSDATAPATH)
