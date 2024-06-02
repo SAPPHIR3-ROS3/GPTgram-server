@@ -129,7 +129,7 @@ def getCaptionImage(imagepath):
 
 def getImageMetadata(imagepath):
     metadata = dict()
-    metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    metadata['adding date'] = datetime.now().isoformat()
     metadata['uri'] = imagepath
     metadata['type'] = imagepath.split('.')[-1]
     metadata['classification'] = getClassImage(imagepath)
@@ -192,7 +192,7 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
 
     pages = [Array(page) for page in convertFromPDF(path, poppler_path=POPPLERPATH)]
     OCRReader = Reader(['en', 'it', 'es', 'fr', 'de'], gpu=True) #TODO: needs testing
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Reader loaded")}: {path}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("OCR: Reader loaded")}: {path}')
     log(currentLogLevel, INFO_LOG_LEVEL, 'OCR: Reader loaded')
     
     document = []
@@ -209,12 +209,12 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
 
         document.append(pageDocument)
 
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document loaded")}: {path}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("OCR: Document loaded")}: {path}')
     log(currentLogLevel, INFO_LOG_LEVEL, 'OCR: Document loaded')
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
     parts = splitter.split_documents(document)
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document splitted")}: {len(parts)}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("OCR: Document splitted")}: {len(parts)}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'OCR: Document splitted: {len(parts)}')
 
     lastPage = None
@@ -237,10 +237,10 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
         lastPage = page
 
         if not doesExists(collection, id):
-            metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            metadata['adding date'] = datetime.now().isoformat()
             collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OCR: Document added")}: {path}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("OCR: Document added")}: {path}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'OCR: Document added: {path}')
 
 def addPDFDocument(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
@@ -249,15 +249,15 @@ def addPDFDocument(collection : Collection, path : str, metadata : dict = None, 
 
     documentName = datetime.now().strftime('%Y%m%d') + path.split('/')[-1].split('.')[0]
     document = PyPDFLoader(path, extract_images=True).load()
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document loaded")}: {path}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("PyPDF: Document loaded")}: {path}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Document loaded: {path}')
     images = extractImagesFromPDF(path) #TODO: Add images to the collection
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Images extracted")}: {len(images)}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("PyPDF: Images extracted")}: {len(images)}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Images extracted: {len(images)}')
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, length_function=len, is_separator_regex=False)
     parts = splitter.split_documents(document)
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document splitted")}: {len(parts)}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("PyPDF: Document splitted")}: {len(parts)}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Document splitted: {len(parts)}')
 
     lastPage = None
@@ -279,10 +279,10 @@ def addPDFDocument(collection : Collection, path : str, metadata : dict = None, 
         lastPage = page
 
         if not doesExists(collection, id):
-            metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            metadata['adding date'] = datetime.now().isoformat()
             collection.add(documents=[parts[i].page_content], metadatas=[metadata], uris=[path], ids=[id])
 
-    # print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("PyPDF: Document added")}: {path}')
+    # print(f'[{datetime.now().isoformat()}] {greenText("PyPDF: Document added")}: {path}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Document added: {path}')
 
     if images: # TODO: needs testing
@@ -355,7 +355,7 @@ def getUserTextCollection(user: str, chatId : str):
 def addTextDocumentToUserCollection(user: str, chatID: str, document: str, sender: str, metadata: dict = None):
     if not metadata:
         metadata = dict()
-        metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        metadata['adding date'] = datetime.now().isoformat()
         metadata['mode'] = 'text' if sender == user else 'AI'
         metadata['author'] = sender
         log(currentLogLevel, INFO_LOG_LEVEL, 'text document metadata created', {'metadata': metadata})
@@ -367,7 +367,7 @@ def addTextDocumentToUserCollection(user: str, chatID: str, document: str, sende
 def addTextDocumentToUserCollectionOLD(user: str, document: str, metadata: dict, chatID, AI: str = '', AIDocument: str = '', AIMetadata: dict = None):
     if not metadata:
         metadata = dict()
-        metadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        metadata['adding date'] = datetime.now().isoformat()
         metadata['mode'] = 'text'
         metadata['author'] = user
         log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} metadata created')
@@ -381,7 +381,7 @@ def addTextDocumentToUserCollectionOLD(user: str, document: str, metadata: dict,
     if AI and AIDocument:
         if not AIMetadata:
             AIMetadata = dict()
-            AIMetadata['adding date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            AIMetadata['adding date'] = datetime.now().isoformat()
             AIMetadata['author'] = AI
             AIMetadata['mode'] = 'AI'
             log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} AI metadata created')
@@ -403,15 +403,15 @@ if __name__ == '__main__':
     filterwarnings("ignore")
     ChromaClient = PersistentClient(currentDirectory(), Settings(anonymized_telemetry=False))
 
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Starting...")}')
+    print(f'[{datetime.now().isoformat()}] {greenText("Starting...")}')
     sentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Model loaded")}: {EMBEDDING_MODEL}')
+    print(f'[{datetime.now().isoformat()}] {greenText("Model loaded")}: {EMBEDDING_MODEL}')
     collection = ChromaClient.create_collection(name='test-collection', embedding_function=SentenceTransformer)
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Collection created")}: test-collection')
+    print(f'[{datetime.now().isoformat()}] {greenText("Collection created")}: test-collection')
     imageLoader = ImageLoader()
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Image loader loaded")}')
+    print(f'[{datetime.now().isoformat()}] {greenText("Image loader loaded")}')
     openCLIP = OpenCLIPEmbeddingFunction()
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("OpenCLIP loaded")}')
+    print(f'[{datetime.now().isoformat()}] {greenText("OpenCLIP loaded")}')
     # mediaCollection = ChromaClient.create_collection(name='media-collection', embedding_function=openCLIP, data_loader=imageLoader)
     # addTextDocument(collection, 'This is a test document', {'author': 'Marguerite Vasquez'})
     # addTextDocument(collection, 'This is another document', {'author': 'Claudia Parker'})
@@ -419,7 +419,7 @@ if __name__ == '__main__':
     # addTextDocument(collection, 'There were white out conditions in the town', {'author': 'Hulda Lowe'})
     # addTextDocument(collection, 'She had the gift of being able to paint songs', {'author': 'Chad Frazier'})
     
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText(f"{collection.count()} Documents added")}')
+    print(f'[{datetime.now().isoformat()}] {greenText(f"{collection.count()} Documents added")}')
     #addPDFDocumentMultiModal(collection, PDFPATH)
     # addImageDocument(mediaCollection, 'testimages/animals/illustration/white/1.png')
     # addImageDocument(mediaCollection, 'testimages/background/vector/white/2.png')
@@ -456,4 +456,4 @@ if __name__ == '__main__':
         
         print()
 
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {greenText("Exiting...")}')
+    print(f'[{datetime.now().isoformat()}] {greenText("Exiting...")}')
