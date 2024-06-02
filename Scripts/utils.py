@@ -4,6 +4,7 @@ filterwarnings("ignore", category=DeprecationWarning)
 filterwarnings("ignore", category=FutureWarning)
 
 from datetime import datetime
+from dateutil.parser import parse
 from inspect import currentframe
 from json import dump
 from json import load
@@ -50,7 +51,7 @@ def log(currentLogLevel, level, message, parameters: dict = None):
     if level > currentLogLevel:
         return
 
-    date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    date = datetime.now().isoformat()
     color = logColor[level]
     type = color(logLevel[level])
     caller = currentframe().f_back.f_code.co_name
@@ -66,6 +67,9 @@ def log(currentLogLevel, level, message, parameters: dict = None):
 
     print(logMessage)
 
+def formatMessage(message: str):
+    return message.encode('utf-8').decode('utf-8')
+
 def retrieveTitles(user: str):
     with open(f'./users-data/{user}/info.json') as file:
         data = load(file)
@@ -80,15 +84,15 @@ def retrieveTitlesList(user: str):
         for hash, title in data.items():
             with open(f'./users-data/{user}/chats/{hash}/log.json') as file:
                 creationDate = load(file)['creation_date']
-                creationDate = datetime.strptime(creationDate, '%Y-%m-%d %H:%M:%S')
-                creationDate = {
-                    'year': creationDate.year, 
-                    'month': creationDate.month, 
-                    'day': creationDate.day, 
-                    'hour': creationDate.hour, 
-                    'minute': creationDate.minute,
-                    'second': creationDate.second
-                }
+                creationDate = creationDate
+                # creationDate = {
+                #     'year': creationDate.year, 
+                #     'month': creationDate.month, 
+                #     'day': creationDate.day, 
+                #     'hour': creationDate.hour, 
+                #     'minute': creationDate.minute,
+                #     'second': creationDate.second
+                # }
 
             titlesList.append({
                 'hash': hash,
