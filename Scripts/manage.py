@@ -58,7 +58,7 @@ def getMetadata(document: str, sender : str, data = None, uri : str = None):
     metadata['uri'] = uri
     if uri is not None:
         metadata['type'] = uri.split('.')[-1]
-    metadata['data'] = data
+    metadata['data'] = data if data is not None else 'None'
 
     return metadata
 
@@ -66,6 +66,22 @@ def doesExists(userID: str, connector: connect):
     with connector:
         cursor = connector.cursor()
         cursor.execute("SELECT * FROM users WHERE id = :id", {'id': userID})
+        user = cursor.fetchone()
+    
+        return user is not None
+
+def isEmailRegistered(email: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT * FROM users WHERE email = :email", {'email': email})
+        user = cursor.fetchone()
+    
+        return user is not None
+    
+def isUsernameRegistered(username: str, connector: connect):
+    with connector:
+        cursor = connector.cursor()
+        cursor.execute("SELECT * FROM users WHERE name = :name", {'name': username})
         user = cursor.fetchone()
     
         return user is not None
@@ -198,6 +214,29 @@ def addChatTextMessage(user: str, chatID: str, message: str, sender: str):
     log(currentLogLevel, INFO_LOG_LEVEL, 'Text message added', {'user': user, 'chat_id': chatID, 'message': message, 'sender': sender})
 
     addTextDocumentToUserCollection(user, chatID, message, sender)
+
+    return True
+
+def addChatAudioMessage(user: str, chatID: str, transcription: str, location: str, sender: str):
+    if not doesUserChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat does not exists', {'user': user, 'chat_id': chatID})
+        return False
+    
+    userChatPath = f'./users-data/{user}/chats/{chatID}'
+    with open(f'{userChatPath}/log.json', 'r') as file:
+        logFile = load(file)
+
+    metadata = getMetadata(transcription, sender, uri=location)
+    messageItem = {'message': transcription, 'sender': sender, 'date': datetime.now().isoformat(), 'type': 'audio', 'location': location, 'id': getID(transcription, metadata)}
+    logFile['log'].append(messageItem)
+
+    with open(f'{userChatPath}/log.json', 'w') as file:
+        dump(logFile, file)
+    
+    log(currentLogLevel, DEBUG_LOG_LEVEL, 'Audio message added', {'user': user, 'chat_id': chatID, 'message': transcription, 'sender': sender, 'location': location})
+
+    #addAudioDocumentToUserCollection(user, chatID, transcription, sender, location)
+    addTextDocumentToUserCollection(user, chatID, transcription, sender, metadata) #TODO: add native implentation not a siply the trascription
 
     return True
 

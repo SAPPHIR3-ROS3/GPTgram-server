@@ -4,18 +4,25 @@ filterwarnings("ignore", category=DeprecationWarning)
 filterwarnings("ignore", category=FutureWarning)
 
 import asyncio
+from base64 import b64decode
 from langchain_community.chat_models.ollama import ChatOllama
 import websockets
 from json import dumps
 from json import loads
 from json.decoder import JSONDecodeError
 from time import sleep
+from Scripts.audio import convertAudioBlobToFile
 from Scripts.manage import *
 from Scripts.RAG import respondtoUser
 from Scripts.RAG import generateUserChatTitle
 from Scripts.utils import formatMessage
+from Scripts.utils import DEBUG_LOG_LEVEL
+from Scripts.utils import ERROR_LOG_LEVEL
+from Scripts.utils import INFO_LOG_LEVEL
+from Scripts.utils import log
 from Scripts.utils import retrieveTitles
-from langchain_community.chat_models.ollama import ChatOllama
+from Scripts.audio import transcribe
+ 
 
 TYPE_REGISTER_MESSAGE = "register"           # Tipo di messaggio per la registrazione
 TYPE_LOGIN_MESSAGE = "login"                 # Tipo di messaggio per il login
@@ -26,6 +33,7 @@ TYPE_MESSAGE_NEW_COOKIE = "newCookie"        # Tipo di messaggio per i nuovi coo
 TYPE_LOGOUT_MESSAGE = "logout"               # Tipo di messaggio per il logout
 TYPE_REQUEST_CHAT_LIST = "chatList"          # Tipo di messaggio per la lista delle chat
 TYPE_REQUEST_CHAT = "chatContent"                   # Tipo di messaggio per la chat
+TYPE_AUDIO_MESSAGE = "audio"                 # Tipo di messaggio per l'audio
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
@@ -46,6 +54,7 @@ async def handle_message(websocket, data):
 
     if chatID not in retrieveTitles(username):
         createUserChat(username, chatID)
+        log(currentLogLevel, INFO_LOG_LEVEL, "Chat created", {'chatID': chatID, 'user': username})
 
 
     echo_message = {
@@ -59,7 +68,40 @@ async def handle_message(websocket, data):
 
     log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': responseText, 'user': username})
     await websocket.send(dumps(echo_message))
+
+#Funzione per gestire i messaggi audio
+async def handle_audio_message(websocket, data):
+    #log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling audio message", {'data': data['audio']})
+    username = data['user']
+    chatID = data['chatId']
+    bynaryAudio = b64decode(data['audio'])
+    date = data['date']
+    name = data['date'].replace(':', '-')
+
+    if chatID not in retrieveTitles(username):
+        createUserChat(username, chatID)
+        log(currentLogLevel, INFO_LOG_LEVEL, "Chat created", {'chatID': chatID, 'user': username})
+
+    audioPath = convertAudioBlobToFile(bynaryAudio, username, chatID, name)
     
+    message = transcribe(audioPath)
+    message = formatMessage(message)
+    llm = ChatOllama(model=MODEL)
+    response = respondtoUser(llm, username, message, chatID)
+    responseText = formatMessage(str(response))
+
+    echo_message = {
+        'typeMessage': TYPE_CHAT_MESSAGE,
+        'message': responseText,
+    }
+
+    #addChatTextMessage(username, chatID, message, 'User')
+    addChatAudioMessage(username, chatID, message, audioPath, 'User')
+    addChatTextMessage(username, chatID, responseText, 'AI')
+
+    log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': responseText, 'user': username})
+    await websocket.send(dumps(echo_message))
+
 #registrazione clients
 async def handle_register(websocket, data):
     # RACCOLTA DATI
@@ -71,9 +113,19 @@ async def handle_register(websocket, data):
     #controllo se l'email è già stata registrata
     connector = loadDatabase()
     userID = getUserID(username, email)
-    if (doesExists(userID, connector )):
+    if doesExists(userID, connector):
         log(currentLogLevel, ERROR_LOG_LEVEL, "User already exists", {'email': email})
-        await websocket.send(dumps({ 'status': '"errorRegisterUserExist"', 'message': 'User already exists' }))
+        await websocket.send(dumps({ 'status': 'errorRegisterUserExist', 'message': 'User already exists' }))
+        return
+    
+    if isEmailRegistered(email, connector):
+        log(currentLogLevel, ERROR_LOG_LEVEL, "Email already registered", {'email': email})
+        await websocket.send(dumps({ 'status': 'errorRegisterUserExist', 'message': 'Email already registered' }))
+        return
+    
+    if isUsernameRegistered(username, connector):
+        log(currentLogLevel, ERROR_LOG_LEVEL, "Username already registered", {'username': username})
+        await websocket.send(dumps({ 'status': 'errorRegisterUserExist', 'message': 'Username already registered' }))
         return
     
     createNewUser(username, email, password, connector)
@@ -220,6 +272,8 @@ async def handler(websocket, path):
                     await handle_chat_list(websocket, data)
                 elif data['typeMessage'] == TYPE_REQUEST_CHAT:
                     await handle_chat_request(websocket, data)
+                elif data['typeMessage'] == TYPE_AUDIO_MESSAGE:
+                    await handle_audio_message(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
             except JSONDecodeError as e:

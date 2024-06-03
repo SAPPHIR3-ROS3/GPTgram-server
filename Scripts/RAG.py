@@ -162,12 +162,14 @@ def generateRelevantResponse(llm: ChatOllama, prompt : str, collection : Collect
 
     if len(AIMessage.getContext()) > 0:
         message = ANSWERPROMPT.format(context=AIMessage.getFormattedContext(), question=prompt)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'prompt template formatted')
     else:
         message = prompt
         
     response = llm.invoke(message).content
     log(currentLogLevel, INFO_LOG_LEVEL, 'Response generated')
     AIMessage.setResponse(response)
+    log(currentLogLevel, INFO_LOG_LEVEL, 'Response set')
 
     return AIMessage
 
