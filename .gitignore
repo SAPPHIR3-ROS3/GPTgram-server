@@ -14,3 +14,4 @@ __pycache__
 *.wav
 *.json
 *.db
+*.mp3
