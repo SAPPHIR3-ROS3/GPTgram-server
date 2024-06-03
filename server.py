@@ -73,7 +73,7 @@ async def handle_register(websocket, data):
     userID = getUserID(username, email)
     if (doesExists(userID, connector )):
         log(currentLogLevel, ERROR_LOG_LEVEL, "User already exists", {'email': email})
-        await websocket.send(dumps({ 'status': 'error', 'message': 'User already exists' }))
+        await websocket.send(dumps({ 'status': '"errorRegisterUserExist"', 'message': 'User already exists' }))
         return
     
     createNewUser(username, email, password, connector)
@@ -90,7 +90,7 @@ async def handle_login(websocket, data):
     log(currentLogLevel, INFO_LOG_LEVEL, "Handling login for", {'email': email})
     if (not doesExists(getUserID(user, email), connector)):
         log(currentLogLevel, ERROR_LOG_LEVEL, "User does not exist", {'email': email})
-        await websocket.send(dumps({ 'status': 'error', 'message': 'User does not exist' }))
+        await websocket.send(dumps({ 'status': 'errorLoginUserNotExist', 'message': 'User does not exist' }))
 
         return
     
@@ -104,7 +104,7 @@ async def handle_login(websocket, data):
             return
         
     log(currentLogLevel, ERROR_LOG_LEVEL, "Wrong password", {'email': email})
-    await websocket.send(dumps({ 'status': 'error', 'message': 'Wrong password' }))
+    await websocket.send(dumps({ 'status': 'errorLoginWrongPassword', 'message': 'Wrong password' }))
 
     return
 
@@ -120,7 +120,7 @@ async def logout_handler(websocket, data):
         return
     
     log(currentLogLevel, ERROR_LOG_LEVEL, "Logout failed")
-    await websocket.send(dumps({ 'status': 'error', 'message': 'Logout failed'}))
+    await websocket.send(dumps({ 'status': 'cookie invalid', 'message': 'Logout failed'}))
 
 # Funzione per gestire i cookie
 async def new_login_cookie(websocket, data):
@@ -141,7 +141,7 @@ async def new_login_cookie(websocket, data):
     await websocket.send(dumps({ 'status': 'NewCookieSuccess', 'message': 'Cookie valid', 'email': email}))
 
 async def login_by_cookie(websocket, data):
-    log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling login by cookie", {'data': data})
+    # log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling login by cookie", {'data': data})
     hash = data['hash']
     connector = loadDatabase()
     if checkUserCookie(hash, connector):
@@ -151,7 +151,7 @@ async def login_by_cookie(websocket, data):
         return
     
     log(currentLogLevel, ERROR_LOG_LEVEL, "login by cookie failed")
-    await websocket.send(dumps({ 'status': 'error', 'message': 'Cookie invalid'}))
+    await websocket.send(dumps({ 'status': 'CookieInvalid', 'message': 'Cookie invalid'}))
 
 async def handle_title(websocket, data):
 
@@ -225,7 +225,7 @@ async def handler(websocket, path):
             except JSONDecodeError as e:
                 log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': e})
 
-#TODO: adesso la chat viene ricreata dobiamo procedare da qui: gestire messagi audio e possibilmente file in generale e fixare gli audio per farli responsivi
+#TODO: adesso la chat viene ricreata dobiamo procedare da qui: gestire messagi audio e possibilmente file in generale
 if __name__ == "__main__":
     filterwarnings("ignore", category=DeprecationWarning)
     filterwarnings("ignore", category=FutureWarning)
