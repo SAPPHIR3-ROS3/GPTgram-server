@@ -19,6 +19,7 @@ from sqlite3 import connect
 
 from Scripts.utils import *
 from Scripts.VectorChromaDB import addTextDocumentToUserCollection
+from Scripts.VectorChromaDB import addPDFDocumentToUserCollection
 from Scripts.VectorChromaDB import getID
 
 DBPATH = 'database.db'
@@ -240,6 +241,28 @@ def addChatAudioMessage(user: str, chatID: str, transcription: str, location: st
 
     return True
 
+def addChatPDFMessage(user: str, chatID: str, location: str, sender: str):
+    if not doesUserChatExists(user, chatID):
+        log(currentLogLevel, ERROR_LOG_LEVEL, 'User chat does not exists', {'user': user, 'chat_id': chatID})
+        return False
+    
+    userChatPath = f'./users-data/{user}/chats/{chatID}'
+    with open(f'{userChatPath}/log.json', 'r') as file:
+        logFile = load(file)
+
+    metadata = getMetadata(location, sender, uri=location)
+    messageItem = {'message': location, 'sender': sender, 'date': datetime.now().isoformat(), 'type': 'pdf', 'location': location, 'id': getID(location, metadata, uri=location)}
+    logFile['log'].append(messageItem)
+
+    with open(f'{userChatPath}/log.json', 'w') as file:
+        dump(logFile, file)
+    
+    log(currentLogLevel, INFO_LOG_LEVEL, 'PDF message added', {'user': user, 'chat_id': chatID, 'message': location, 'sender': sender, 'location': location})
+
+    addPDFDocumentToUserCollection(user, chatID, location, metadata, sender, metadata)
+
+    return True
+
 def deleteUserChat(user: str, chatID: str):
     if exists(f'users-data/{user}/chats/{chatID}'):
         rmtree(f'users-data/{user}/chats/{chatID}')
@@ -396,6 +419,7 @@ def getChatMessages(user: str, chatID: str):
     with open(f'./users-data/{user}/chats/{chatID}/log.json', 'r') as file:
         chatLog = load(file)['log']
         log(currentLogLevel, INFO_LOG_LEVEL, 'Chat messages retrieved', {'user': user, 'chat_id': chatID})
+        
 
         return chatLog
     
@@ -435,8 +459,8 @@ def setupData():
 
     return loadDatabase()
 
-def deleteAllData(connector: connect, confirm: bool = False):
-    if confirm:
+def deleteAllData(connector: connect, confirm : bool = False):
+    if confirm and input('Are you sure you want to delete all data? (y/n) ').lower() == 'y':
         deleteUsersData(connector, confirm)
         deleteCommonData(confirm)
         log(currentLogLevel, INFO_LOG_LEVEL, 'All data deleted')
