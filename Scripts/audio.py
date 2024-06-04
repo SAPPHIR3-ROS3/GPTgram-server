@@ -15,7 +15,7 @@ from transformers import AutoModelForSpeechSeq2Seq
 from transformers import AutoProcessor
 from transformers import pipeline
 
-currentLogLevel = DEBUG_LOG_LEVEL
+currentLogLevel = INFO_LOG_LEVEL
 SRMODEL = "openai/whisper-large-v3" # openai/whisper-large-v3
 
 def transcribe(audioPath):
@@ -46,14 +46,14 @@ def transcribeUserAudio(user: str, chatId: str, audioStr):
     if audioStr.endswith('.mp3'):
         audioStr += '.mp3'
 
-    audioPath = f'./{user}/{chatId}/audios/{audioStr}'
+    audioPath = f'./{user}/chats/{chatId}/audios/{audioStr}'
     transcript = transcribe(audioPath)
 
     return transcript
 
 def convertAudioBlobToFile(blob: bytes, user: str, chatId: str, audioStr):
-    audioPath = f'./users-data/{user}/{chatId}/audios/'
-    makedirs(audioPath, exist_ok=True)
+    audioPath = f'./users-data/{user}/chats/{chatId}/audios/'
+    #makedirs(audioPath, exist_ok=True)
 
     audioPath += f'{audioStr}.mp3'
 
