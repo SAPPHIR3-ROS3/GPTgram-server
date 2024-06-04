@@ -3,14 +3,23 @@ from warnings import filterwarnings
 filterwarnings("ignore", category=DeprecationWarning)
 filterwarnings("ignore", category=FutureWarning)
 
-import asyncio
+from asyncio import all_tasks 
+from asyncio import FIRST_COMPLETED
+from asyncio import get_event_loop
+from asyncio import wait
 from base64 import b64decode
 from langchain_community.chat_models.ollama import ChatOllama
 import websockets
 from json import dumps
 from json import loads
 from json.decoder import JSONDecodeError
-from time import sleep
+# from signal import SIGINT
+# from signal import signal
+from sys import exit
+# from ssl import PROTOCOL_TLS_SERVER
+# from ssl import SSLContext
+
+from Scripts.files import convertFileBlobtoPDF
 from Scripts.audio import convertAudioBlobToFile
 from Scripts.manage import *
 from Scripts.RAG import respondtoUser
@@ -34,10 +43,34 @@ TYPE_LOGOUT_MESSAGE = "logout"               # Tipo di messaggio per il logout
 TYPE_REQUEST_CHAT_LIST = "chatList"          # Tipo di messaggio per la lista delle chat
 TYPE_REQUEST_CHAT = "chatContent"                   # Tipo di messaggio per la chat
 TYPE_AUDIO_MESSAGE = "audio"                 # Tipo di messaggio per l'audio
+TYPE_FILE_MESSAGE = "file";                  #Tipo di messaggio per il file
+
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
 currentLogLevel = DEBUG_LOG_LEVEL
+# open_websockets = set()
+clientsConnected = 0
+
+async def gracefulTermination(receivedSignal, frame):
+    log(currentLogLevel, INFO_LOG_LEVEL, "started graceful termination")
+    connector = loadDatabase()
+    connector.close()
+    log(currentLogLevel, INFO_LOG_LEVEL, "Database connection closed")
+
+    # global open_websockets
+    # for websocket in open_websockets:
+    #     await websocket.close()
+
+    done, pending = await wait(all_tasks(), return_when=FIRST_COMPLETED)
+
+    for task in pending:
+        task.cancel()
+
+    log(currentLogLevel, INFO_LOG_LEVEL, "All remaining tasks cancelled")
+
+    get_event_loop().stop()
+    log(currentLogLevel, INFO_LOG_LEVEL, "Event loop stopped")
 
 # Funzione per gestire messaggi al client
 async def handle_message(websocket, data):
@@ -71,7 +104,6 @@ async def handle_message(websocket, data):
 
 #Funzione per gestire i messaggi audio
 async def handle_audio_message(websocket, data):
-    #log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling audio message", {'data': data['audio']})
     username = data['user']
     chatID = data['chatId']
     bynaryAudio = b64decode(data['audio'])
@@ -85,6 +117,7 @@ async def handle_audio_message(websocket, data):
     audioPath = convertAudioBlobToFile(bynaryAudio, username, chatID, name)
     
     message = transcribe(audioPath)
+    log(currentLogLevel, INFO_LOG_LEVEL, "user message", {'user' : username, 'chatID': chatID, 'message': message})
     message = formatMessage(message)
     llm = ChatOllama(model=MODEL)
     response = respondtoUser(llm, username, message, chatID)
@@ -97,6 +130,41 @@ async def handle_audio_message(websocket, data):
 
     #addChatTextMessage(username, chatID, message, 'User')
     addChatAudioMessage(username, chatID, message, audioPath, 'User')
+    addChatTextMessage(username, chatID, responseText, 'AI')
+
+    log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': responseText, 'user': username})
+    await websocket.send(dumps(echo_message))
+
+async def handle_file_message(websocket, data):
+    username = data['user']
+    chatID = data['chatId']
+    bynaryFile = b64decode(data['file'])
+    date = data['date']
+    filename = data['filename']
+    extension = data['extension']
+    message = data['message']
+    message = formatMessage(message)
+    log(currentLogLevel, INFO_LOG_LEVEL, "user message", {'user' : username, 'chatID': chatID, 'message': message})
+    log(currentLogLevel, INFO_LOG_LEVEL, "Handling file message", {'user': username, 'chatID': chatID, 'filename': filename,'extension': extension, 'message': message})
+    
+    if chatID not in retrieveTitles(username):
+        createUserChat(username, chatID)
+        log(currentLogLevel, INFO_LOG_LEVEL, "Chat created", {'chatID': chatID, 'user': username})
+
+    if extension == 'pdf':
+        filePath = convertFileBlobtoPDF(bynaryFile, username, chatID, filename)
+        addChatPDFMessage(username, chatID, filePath, 'User')
+
+    llm = ChatOllama(model=MODEL)
+    response = respondtoUser(llm, username, message, chatID)
+    responseText = formatMessage(str(response))
+    echo_message = {
+        'typeMessage': TYPE_CHAT_MESSAGE,
+        'message': responseText,
+    }
+
+    #addTextDocumentToUserCollection(username, message, chatID, 'AI', response)
+    addChatTextMessage(username, chatID, message, 'User')
     addChatTextMessage(username, chatID, responseText, 'AI')
 
     log(currentLogLevel, INFO_LOG_LEVEL, "AI response to user", {'chatID': chatID, 'message': responseText, 'user': username})
@@ -162,7 +230,6 @@ async def handle_login(websocket, data):
 
 # Funzione per gestire il logout
 async def logout_handler(websocket, data):
-    log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling logout", {'data': data})
     hash = data['hash']
     connector = loadDatabase()
     if checkUserCookie(hash, connector):
@@ -193,7 +260,6 @@ async def new_login_cookie(websocket, data):
     await websocket.send(dumps({ 'status': 'NewCookieSuccess', 'message': 'Cookie valid', 'email': email}))
 
 async def login_by_cookie(websocket, data):
-    # log(currentLogLevel, DEBUG_LOG_LEVEL, "Handling login by cookie", {'data': data})
     hash = data['hash']
     connector = loadDatabase()
     if checkUserCookie(hash, connector):
@@ -230,8 +296,6 @@ async def handle_chat_list(websocket, data):
         'titles': titles
     }
 
-    #log(currentLogLevel, DEBUG_LOG_LEVEL, "chat list request", {'titles': titles})
-
     await websocket.send(dumps(message))
 
 async def handle_chat_request(websocket, data):
@@ -250,6 +314,12 @@ async def handle_chat_request(websocket, data):
 
 # Funzione per gestire i messaggi 
 async def handler(websocket, path):
+    # open_websockets.add(websocket)
+    # global clientsConnected
+    # if len(open_websockets) != clientsConnected:
+    #     clientsConnected = len(open_websockets)
+    #     log(currentLogLevel, INFO_LOG_LEVEL, "Clients connected", {'clients': clientsConnected})
+
     async for message in websocket:
         if message:
             try:
@@ -274,23 +344,33 @@ async def handler(websocket, path):
                     await handle_chat_request(websocket, data)
                 elif data['typeMessage'] == TYPE_AUDIO_MESSAGE:
                     await handle_audio_message(websocket, data)
+                elif data['typeMessage'] == TYPE_FILE_MESSAGE:
+                    await handle_file_message(websocket, data)
                 else:
                     print(f"Unknown message type: {data['typeMessage']}")
             except JSONDecodeError as e:
                 log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': e})
-
-#TODO: adesso la chat viene ricreata dobiamo procedare da qui: gestire messagi audio e possibilmente file in generale
+                
 if __name__ == "__main__":
     filterwarnings("ignore", category=DeprecationWarning)
     filterwarnings("ignore", category=FutureWarning)
+    #signal(SIGINT, gracefulTermination)
+    log(currentLogLevel, INFO_LOG_LEVEL, "============================================Server  started============================================")
     connector = loadDatabase()
-    deleteAllData(connector)
+    deleteAllData(connector, True)
     connector = loadDatabase()
     setupData()
     checkCookies(connector)
     log(currentLogLevel, INFO_LOG_LEVEL, "Starting server")
+    # ssl_context = SSLContext(PROTOCOL_TLS_SERVER)
+    # ssl_context.load_cert_chain(certfile='certfile.pem', keyfile='keyfile.pem')
+    # start_server = websockets.serve(handler, "localhost", 8765, ssl=ssl_context)
+    # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)    # ssl_context.load_cert_chain('./certfile.pem', './keyfile.pem')
+    # start_server = websockets.serve(handler, "localhost", 8765, ssl=ssl_context)
     start_server = websockets.serve(handler, "localhost", 8765)
     log(currentLogLevel, INFO_LOG_LEVEL, "Server started")
-    asyncio.get_event_loop().run_until_complete(start_server)
+    get_event_loop().run_until_complete(start_server)
     log(currentLogLevel, INFO_LOG_LEVEL, "event loop started")
-    asyncio.get_event_loop().run_forever()
+    get_event_loop().run_forever()
+    log(currentLogLevel, INFO_LOG_LEVEL, "===========================================Server terminated===========================================")
+    exit(0)
