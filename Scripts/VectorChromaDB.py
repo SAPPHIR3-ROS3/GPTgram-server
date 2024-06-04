@@ -243,9 +243,14 @@ def addPDFDocumentOCR(collection : Collection, path : str, metadata : dict = Non
     # print(f'[{datetime.now().isoformat()}] {greenText("OCR: Document added")}: {path}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'OCR: Document added: {path}')
 
-def addPDFDocument(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
+def addPDFDocument(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None, mediaCollection : Collection = None):
+    commonMetadata = None
+    log(currentLogLevel, DEBUG_LOG_LEVEL, 'metadata', {'metadata': metadata})
     if not metadata:
         commonMetadata = getPDFMetadata(path)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'PDF common metadata created', {'metadata': commonMetadata})
+    else:
+        commonMetadata = metadata
 
     documentName = datetime.now().strftime('%Y%m%d') + path.split('/')[-1].split('.')[0]
     document = PyPDFLoader(path, extract_images=True).load()
@@ -289,9 +294,9 @@ def addPDFDocument(collection : Collection, path : str, metadata : dict = None, 
         for i, image in enumerate(images):
             path = f'{imagesPath}/{documentName+str(i+1)}.png'
             image.save(path)
-            addImageDocument(collection, path)
+            addImageDocument(mediaCollection, path)
 
-def addPDFDocumentMultiModal(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None):
+def addPDFDocumentMultiModal(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None, mediaCollection : Collection = None):
     addPDFDocument(collection, path, metadata, images, imagesPath)
     addPDFDocumentOCR(collection, path, metadata)
 
@@ -328,7 +333,7 @@ def queryImageCollection(collection : Collection, imagepath : str, count : int =
 
 def createOrGetUserVectorDatabase(user: str):
     SentenceTransformer = SentenceTransformerEmbeddingFunction(EMBEDDING_MODEL, trust_remote_code=True)
-    UserClient = PersistentClient(f'../users-data/{user}', Settings(anonymized_telemetry=False))
+    UserClient = PersistentClient(f'./users-data/{user}', Settings(anonymized_telemetry=False))
     
     if not UserClient:
         return None
@@ -352,6 +357,12 @@ def getUserTextCollection(user: str, chatId : str):
 
     return UserCollection
 
+def getUserImageCollection(user: str, chatId : str):
+    UserClient = createOrGetUserVectorDatabase(user)
+    UserCollection = UserClient.get_or_create_collection(name='media-collection', embedding_function=OpenCLIPEmbeddingFunction(), data_loader=ImageLoader())
+
+    return UserCollection
+
 def addTextDocumentToUserCollection(user: str, chatID: str, document: str, sender: str, metadata: dict = None):
     if not metadata:
         metadata = dict()
@@ -362,7 +373,7 @@ def addTextDocumentToUserCollection(user: str, chatID: str, document: str, sende
 
     userCollection = getUserTextCollection(user, chatID)
     addTextDocument(userCollection, document, metadata)
-    log(currentLogLevel, INFO_LOG_LEVEL, 'text document added', {'document': document})
+    log(currentLogLevel, INFO_LOG_LEVEL, 'text document added to user collection', {'document': document})
 
 def addTextDocumentToUserCollectionOLD(user: str, document: str, metadata: dict, chatID, AI: str = '', AIDocument: str = '', AIMetadata: dict = None):
     if not metadata:
@@ -389,10 +400,27 @@ def addTextDocumentToUserCollectionOLD(user: str, document: str, metadata: dict,
         addTextDocument(UserColletion, AIDocument, AIMetadata)
         log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} AI document added')
 
+def addPDFDocumentToUserCollection(user: str, chatID: str, path: str, metadata: dict = None, images: bool = True, imagesPath: str = None):
+    if not metadata:
+        metadata = getPDFMetadata(path)
+        log(currentLogLevel, INFO_LOG_LEVEL, 'PDF common metadata created', {'metadata': metadata})
+
+    userCollection = getUserTextCollection(user, chatID)
+    log(currentLogLevel, INFO_LOG_LEVEL, 'User collection loaded', {'user': user, 'chatID': chatID})
+    userMediaCollection = getUserImageCollection(user, chatID)
+    log(currentLogLevel, INFO_LOG_LEVEL, 'User media collection loaded', {'user': user, 'chatID': chatID})
+
+    addPDFDocument(userCollection, path, metadata, images=images, imagesPath=imagesPath, mediaCollection=userMediaCollection)
+    log(currentLogLevel, INFO_LOG_LEVEL, 'PDF document added to user collection', {'user': user, 'chatID': chatID, 'path': path} )
+
 def queryUserTextCollection(user: str, query: str, count: int = 3, add_docs: bool = True, add_dists: bool = True, add_metadatas: bool = True, add_uris: bool = False, add_data: bool = False, add_embeddings: bool = False):
     UserClient = createOrGetUserVectorDatabase(user)
     log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} database loaded')
     UserCollection = UserClient.get_or_create_collection(name='user-collection', embedding_function=SentenceTransformer)
+
+    if UserCollection.count() < count:
+        count = UserCollection.count()
+        
     log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} collection loaded')
     result = queryTextCollection(UserCollection, query, count, add_docs, add_dists, add_metadatas, add_uris, add_data, add_embeddings)
     log(currentLogLevel, INFO_LOG_LEVEL, f'User {user} query executed')
