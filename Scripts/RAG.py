@@ -35,6 +35,8 @@ MULTIQUERYPROMPT = PromptTemplate.from_template(
     a vector database. By generating multiple perspectives on the user question, your
     goal is to help the user overcome some of the limitations of the distance-based
     similarity search. Provide these alternative questions separated by newlines.
+    The question of the user might not be in in english. you must match the language 
+    of the user's question as best as you can.
     Original question: {question}
     """
 )
@@ -47,6 +49,8 @@ Answer the question based only on the following context:
 
 ---
 
+The question or the context might not be in english. you must match the language 
+of the user's question as best as you can.
 Answer the question based on the above context: {question}
 """
 )
@@ -54,7 +58,8 @@ Answer the question based on the above context: {question}
 RELEVANCEPROMPT = PromptTemplate.from_template(
     """
     You are an AI language model assistant.Your task is to determine whether the
-    given context is relevant to the user question.
+    given context is relevant to the user question.The question or the context might 
+    not be in english.
 
     retrieved context: {context}
     user question: {question}
@@ -70,7 +75,9 @@ TITLECHATPROMPT = ChatPromptTemplate.from_template(
     """
     You are an AI language model assistant. Your task is to generate a title 
     for the chat between the user and the AI. The title should be a concise
-    summary of the chat content and as short as possible.
+    summary of the chat content and as short as possible.the messages between
+    the user and the AI may be in any language, the title should be in the
+    same language as the messages.
     
     user: {user}
     AI: {AI}
@@ -205,7 +212,7 @@ def generateUserChatTitle(llm: ChatOllama, user: str, chatId: str):
     titles[chatId] = title
     userInfo['titles'] = titles
 
-    with open(f'../users-data/{user}/info.json', 'w') as file:
+    with open(f'./users-data/{user}/info.json', 'w') as file:
         dump(userInfo, file)
 
     return title
