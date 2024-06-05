@@ -357,7 +357,7 @@ if __name__ == "__main__":
     #signal(SIGINT, gracefulTermination)
     log(currentLogLevel, INFO_LOG_LEVEL, "============================================Server  started============================================")
     connector = loadDatabase()
-    deleteAllData(connector, True)
+    deleteAllData(connector)
     connector = loadDatabase()
     setupData()
     checkCookies(connector)
