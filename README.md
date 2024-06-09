@@ -52,25 +52,32 @@
 
 ## Setup
 python 3.11 is required (there are some problem of compatibility with python 3.12)
+ollama is required
+***poppler might be required***
 
 ### Modules needed (manual installation)
 - chromadb
 - easyocr
+- dotenv
 - langchain
-- langchain-chroma
+- langchain-community
 - langchain-text-splitters
+- numpy
 - ollama
 - openai
 - pdf2image
+- pillow
 - pypdf
 - pytorch (this one need CUDA setup)
 - rapidocr-onnxruntime
 - sentence
 - unstructured
 - "unstructured[all-docs]"
-- torch
-- torchaudio
-- torchvision
+- torch (this one need CUDA setup)
+- torchaudio (this one need CUDA setup)
+- torchvision (this one need CUDA setup)
+- transformers
+- vt-py
 - websockets
  
 ### Unix/Linux/MacOS

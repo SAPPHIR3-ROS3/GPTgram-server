@@ -16,8 +16,8 @@ from json.decoder import JSONDecodeError
 # from signal import SIGINT
 # from signal import signal
 from sys import exit
-# from ssl import PROTOCOL_TLS_SERVER
-# from ssl import SSLContext
+from ssl import PROTOCOL_TLS_SERVER
+from ssl import SSLContext
 
 from Scripts.files import convertFileBlobtoPDF
 from Scripts.audio import convertAudioBlobToFile
@@ -350,7 +350,11 @@ async def handler(websocket, path):
                     print(f"Unknown message type: {data['typeMessage']}")
             except JSONDecodeError as e:
                 log(currentLogLevel, ERROR_LOG_LEVEL, "Invalid JSON", {'message': e})
-                
+
+
+
+
+
 if __name__ == "__main__":
     filterwarnings("ignore", category=DeprecationWarning)
     filterwarnings("ignore", category=FutureWarning)
@@ -362,12 +366,11 @@ if __name__ == "__main__":
     setupData()
     checkCookies(connector)
     log(currentLogLevel, INFO_LOG_LEVEL, "Starting server")
-    # ssl_context = SSLContext(PROTOCOL_TLS_SERVER)
-    # ssl_context.load_cert_chain(certfile='certfile.pem', keyfile='keyfile.pem')
-    # start_server = websockets.serve(handler, "localhost", 8765, ssl=ssl_context)
-    # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)    # ssl_context.load_cert_chain('./certfile.pem', './keyfile.pem')
-    # start_server = websockets.serve(handler, "localhost", 8765, ssl=ssl_context)
-    start_server = websockets.serve(handler, "localhost", 8765)
+    ssl_context = SSLContext(PROTOCOL_TLS_SERVER)
+    # ssl_context.load_cert_chain(certfile='cert.pem', keyfile='key.pem')
+    ssl_context.load_cert_chain(certfile='fullchain.pem', keyfile='privkey.pem')
+    start_server = websockets.serve(handler, "localhost", 8765, ssl=ssl_context)   
+    # start_server = websockets.serve(handler, "localhost", 8765)
     log(currentLogLevel, INFO_LOG_LEVEL, "Server started")
     get_event_loop().run_until_complete(start_server)
     log(currentLogLevel, INFO_LOG_LEVEL, "event loop started")
