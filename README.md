@@ -55,6 +55,18 @@ python 3.11 is required (there are some problem of compatibility with python 3.1
 ollama is required
 ***poppler might be required***
 
+### https setup
+#### generate self-signed certificates
+```
+openssl req -new -x509 -days 365 -nodes -out cert.pem -keyout key.pem -subj "/CN=localhost"
+```
+#### to check certificates
+```
+openssl x509 -in cert.pem -text -noout
+openssl rsa -in key.pem -check 
+```
+once the server is online go to https://localhost:8765/ and enable not secure content (for self-signed certificates) in the website settings
+
 ### Modules needed (manual installation)
 - chromadb
 - easyocr
@@ -98,10 +110,7 @@ ollama is required
     ```
     source ollamarag/bin/activate
     ```
-5. Install the requirements:
-    ```
-    pip install -r requirements.txt
-    ```
+5. Install the requirements (listed above)
 
 ### Windows
 
@@ -121,10 +130,7 @@ ollama is required
     ```
     .\ollamarag\Scripts\activate.ps1
     ```
-5. Install the requirements:
-    ```
-    pip install -r requirements.txt
-    ```
+5. Install the requirements (listed above)
 
 ## Incompatibility Note
 this cause installation problem
