@@ -101,3 +101,7 @@ def retrieveTitlesList(user: str):
             })
 
         return titlesList
+
+def loadConfig(configPath: str):
+    with open(configPath) as file:
+        return load(file)
