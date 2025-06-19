@@ -290,11 +290,11 @@ def addPDFDocument(collection : Collection, path : str, metadata : dict = None, 
     # print(f'[{datetime.now().isoformat()}] {greenText("PyPDF: Document added")}: {path}')
     log(currentLogLevel, INFO_LOG_LEVEL, f'PyPDF: Document added: {path}')
 
-    if images: # TODO: needs testing
-        for i, image in enumerate(images):
-            path = f'{imagesPath}/{documentName+str(i+1)}.png'
-            image.save(path)
-            addImageDocument(mediaCollection, path)
+    # if images: # TODO: needs testing
+    #     for i, image in enumerate(images):
+    #         path = f'{imagesPath}/{documentName+str(i+1)}.png'
+    #         image.save(path)
+    #         addImageDocument(mediaCollection, path)
 
 def addPDFDocumentMultiModal(collection : Collection, path : str, metadata : dict = None, images : bool = False, imagesPath : str = None, mediaCollection : Collection = None):
     addPDFDocument(collection, path, metadata, images, imagesPath)
