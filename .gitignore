@@ -14,3 +14,4 @@ __pycache__
 *.wav
 *.db
 *.mp3
+/users-data
