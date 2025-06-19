@@ -45,6 +45,8 @@ TYPE_REQUEST_CHAT = "chatContent"                   # Tipo di messaggio per la c
 TYPE_AUDIO_MESSAGE = "audio"                 # Tipo di messaggio per l'audio
 TYPE_FILE_MESSAGE = "file";                  #Tipo di messaggio per il file
 
+MAX_SIZE = 10 * 1024 * 1024
+
 
 MODEL = 'dolphin-llama3:8b-v2.9-q8_0'
 
@@ -360,17 +362,17 @@ if __name__ == "__main__":
     filterwarnings("ignore", category=FutureWarning)
     #signal(SIGINT, gracefulTermination)
     log(currentLogLevel, INFO_LOG_LEVEL, "============================================Server  started============================================")
-    connector = loadDatabase()
-    deleteAllData(connector)
+    #connector = loadDatabase()    
+    #deleteAllData(connector)    # needed to reset the database
     connector = loadDatabase()
     setupData()
     checkCookies(connector)
     log(currentLogLevel, INFO_LOG_LEVEL, "Starting server")
-    ssl_context = SSLContext(PROTOCOL_TLS_SERVER)
-    # ssl_context.load_cert_chain(certfile='cert.pem', keyfile='key.pem')
-    ssl_context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
-    start_server = websockets.serve(handler, "localhost", 8765, ssl=ssl_context, max_size=9000000)   
-    # start_server = websockets.serve(handler, "localhost", 8765)
+    #ssl_context = SSLContext(PROTOCOL_TLS_SERVER)      
+    # ssl_context.load_cert_chain(certfile='cert.pem', keyfile='key.pem')        
+    #ssl_context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
+    #start_server = websockets.serve(handler, "localhost", 8765, ssl=ssl_context, max_size=MAX_SIZE)    # needed for wss
+    start_server = websockets.serve(handler, "localhost", 8765, max_size=MAX_SIZE)
     log(currentLogLevel, INFO_LOG_LEVEL, "Server started")
     get_event_loop().run_until_complete(start_server)
     log(currentLogLevel, INFO_LOG_LEVEL, "event loop started")
